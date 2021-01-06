@@ -53,9 +53,11 @@ const char webpage[] PROGMEM = R"=====(
             <hr>
             <h3>Just for fun...</h3>
             <p>ADC Value is : <span id="ADCValue">0</span></p>
+            <!--
             <button type="button" onclick="sendData(1)" class="btn btn-sm btn-success">LED ON</button>
             <button type="button" onclick="sendData(0)" class="btn btn-sm btn-danger">LED OFF</button>
             <small class="form-text text-muted">Blue LED State is : <span id="LEDState">NA</span></small>
+            -->
         </div>
     </div>
   </div>
@@ -64,7 +66,7 @@ const char webpage[] PROGMEM = R"=====(
     <div class="container">
       <div class="row">
         <div class="col-sm">
-        <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.0<br>
+        <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.0cd<br>
         <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>%
         </div>
         <div class="col-sm text-left text-sm-right">
