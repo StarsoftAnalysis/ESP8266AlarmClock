@@ -16,7 +16,39 @@
     Twitter: https://twitter.com/witnessmenow
 
     This version by Chris Dennis
+
+    TODO:
+     - use ezTime events to trigger alarm?
+     - JSON6
  *******************************************************************/
+// * max alarm time? needs fixing
+// * store alarm time as minutes since midnight instead of hour/minute
+// * snooze
+// * repeat e.g. alarm of after 5 minutes, then on again at 10 minutes, etc.
+// * button functions:
+//   - cancel / enable next alarm
+//   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
+// * check summer time etc (i.e. NTPClient vs Timezone) - use UK. function, not direct from ntpclient
+// * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
+//   - need to combine https://bitbucket.org/teckel12/arduino-timer-free-tone/downloads/ with the non-blocking RTTTL
+//   - alarm to get louder gradually
+// * SPIFFS for HTML and JS, perhaps using https://github.com/winder/ESPTemplateProcessor
+// * config in flash?
+// * web page 
+//   - choose from list of tunes
+//   - choose NTP server, time zone, DST rule
+// * home-grown timers instead of pseudothreads
+// * home-grown wifi library?
+// * JSON v6
+// DONE
+// * off completely if ldr < min -- not just on level
+// * colon if seconds % 2
+// * get rid if mdNS stuff
+// * can't get dots to work -- try a different TM1637 library? -- nothing seems to help
+// * bug? 
+//   - rebooted when button pressed for too long to see time at night
+//   - rebooted at alarm time
+// * light on when button pressed -- keep it on for e.g. 5 seconds
 
 //Included with ESP8266 Arduino Core
 #include <ESP8266WiFi.h>
@@ -48,12 +80,16 @@
 // Search for "Wifimanager" in the Arduino Library manager
 // https://github.com/tzapu/WiFiManager
 
+#include "timers.h"
+// Home-made timers
+
+// Extra bits of code
 #include "secret.h"
 #include "pitches.h"
 #include "displayConf.h"
 
 // Declare 'webpage': 
-#include "alarmWeb.h";
+#include "alarmWeb.h"
 
 // --- TimeZone (Change me!) ---
 
@@ -69,40 +105,78 @@
 
 // -----------------------------
 
-
 // --- Pin Configuration ---
-
-//Display Pins
-#define CLK D6
-#define DIO D5
-
-// Buzzer Pin
-#define ALARM D1
-
-// Buttons Pins
-#define BUTTON D2
-#define SNOOZE_BUTTON D3
-
-// LDR Pin
-#define LDR A0
-
-//On board LED
-#define LED LED_BUILTIN
+#define CLK_PIN     D6
+#define DIO_PIN     D5
+#define BUZZER_PIN  D1
+#define RBUTTON_PIN D2   // SW1
+#define LBUTTON_PIN D3   // SW2
+#define LDR_PIN     A0
+#define LED_PIN     LED_BUILTIN
 
 // ------------------------
 
-TM1637Display display(CLK, DIO);
+TM1637Display display(CLK_PIN, DIO_PIN);
 
 ESP8266WebServer server(80);
 
-static boolean dotsOn;
-
-static unsigned long oneSecondLoopDue = 0;
-
-static int brightnessAdjustInterval = 100; //mS
-static unsigned long adjustBrightnessDue = 0;
-
 static Timezone TZ;
+
+static int alarmHour = 0;
+static int alarmMinute = 0;
+static bool alarmActive = false;
+static bool alarmHandled = false;
+static bool buttonPressed = false;
+
+#define KEEP_LIGHT_ON_TIME 5000
+static bool keepingLightOn = false;
+
+struct {
+    bool          lButtonPressed;    // left button
+    long unsigned lButtonPressedTime;
+    bool          lButtonLong;
+    bool          rButtonPressed;    // right button
+    long unsigned rButtonPressedTime;
+    bool          rButtonLong;
+    bool          aButtonPressed;    // any button
+    // TODO lButtonLongStart etc.
+} buttonState;
+#define LONG_BUTTON_PRESS_TIME 2000
+
+// converts the dBm to a range between 0 and 100%
+static int getWifiQuality() {
+    int32_t dbm = WiFi.RSSI();
+    if (dbm <= -100) {
+        return 0;
+    } else if (dbm >= -50) {
+        return 100;
+    } else {
+        return 2 * (dbm + 100);
+    }
+}
+
+static bool saveConfig() {
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    json["alarmHour"] = alarmHour;
+    json["alarmMinute"] = alarmMinute;
+    json["alarmActive"] = alarmActive;
+
+    File configFile = SPIFFS.open("/alarm.json", "w");
+    if (!configFile) {
+        Serial.println("Failed to open config file for writing");
+        return false;
+    }
+
+    json.printTo(configFile);
+    return true;
+}
+
+void dontKeepLightOn (void) {
+    keepingLightOn = false;
+}
+
+// HTTP request handlers:
 
 void handleRoot() {
     server.send(200, "text/html", webpage);
@@ -114,14 +188,14 @@ void handleNotFound() {
 }
 
 void handleADC() {
-    int a = analogRead(A0);
+    int a = analogRead(LDR_PIN);
     String adcValue = String(a);
     server.send(200, "text/plain", adcValue); //Send ADC value only to client ajax request
 }
 
 void handleWiFi() {
-    int8_t rssi = getWifiQuality();
-    String rssiValue = String(rssi);
+    int rssi = getWifiQuality();
+    String rssiValue = String(rssi);    //sprintf("%d%  (Compiled %s)", rssi, dateTime(compileTime() - (TZ.getOffset() * 60)).c_str());
     server.send(200, "text/plain", rssiValue);
 }
 
@@ -130,17 +204,17 @@ void handleLED() {
     String t_state = server.arg("LEDstate"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
     Serial.println(t_state);
     if (t_state == "1") {
-        digitalWrite(LED,LOW); //LED ON
+        digitalWrite(LED_PIN,LOW); //LED ON
         ledState = "<i class=\"fas fa-lightbulb\"></i> ON"; //Feedback parameter
     } else if (t_state == "2") {
-        //  digitalRead(LED); //READ LED
-        if (digitalRead(LED) == 1) {
+        //  digitalRead(LED_PIN); //READ LED
+        if (digitalRead(LED_PIN) == 1) {
             ledState = "<i class=\"far fa-lightbulb\"></i> OFF"; //Feedback parameter  
         } else {
             ledState = "<i class=\"fas fa-lightbulb\"></i> ON";
         }
     } else {
-        digitalWrite(LED,HIGH); //LED OFF
+        digitalWrite(LED_PIN,HIGH); //LED OFF
         ledState = "<i class=\"far fa-lightbulb\"></i> OFF"; //Feedback parameter  
     }
     server.send(200, "text/html", ledState); //Send web page
@@ -169,19 +243,13 @@ void handleSetAlarm() {
 
 void handleDeleteAlarm() {
     Serial.println("Deleting Alarm");
-    alarmHour = '--';
-    alarmMinute = '--';
+    alarmHour = 0;
+    alarmMinute = 0;
     alarmActive = false;
     saveConfig();
     Serial.print("Alarm deleted");
     server.send(200, "text/plain", "--:--");
 }
-
-static int alarmHour = 0;
-static int alarmMinute = 0;
-static bool alarmActive = false;
-static bool alarmHandled = false;
-static bool buttonPressed = false;
 
 void handleGetAlarm() {
     char alarmString[5];
@@ -198,6 +266,69 @@ void configModeCallback (WiFiManager *myWiFiManager) {
     Serial.println(WiFi.softAPIP());
     display.setSegments(SEG_CONF);
 }
+
+static void setButtonStates (void) {
+    static bool lButtonPressedBefore = false;
+    static bool rButtonPressedBefore = false;
+    long unsigned now = millis();
+    buttonState.lButtonPressed = (digitalRead(LBUTTON_PIN) == LOW);
+    buttonState.rButtonPressed = (digitalRead(RBUTTON_PIN) == LOW);
+    buttonState.aButtonPressed = (buttonState.lButtonPressed || buttonState.rButtonPressed);
+    buttonState.lButtonLong = false;
+    buttonState.rButtonLong = false;
+    if (buttonState.lButtonPressed) {
+        if (lButtonPressedBefore) {
+            if (now - buttonState.lButtonPressedTime > LONG_BUTTON_PRESS_TIME) {
+                // FIXME need to know when long press finishes?  or rather when long press has been acknowledged/dealt with
+                // Could reset xButtonLong every loop, so that it's only true once for other functions called from the loop that want to test it, rather than calling other functions from here.
+                if (!buttonState.lButtonLong) {
+                    Serial.println("sBS: lButtonLong becomes true");
+                }
+                buttonState.lButtonLong = true;
+            }
+        } else {
+            buttonState.lButtonPressedTime = now;
+        }
+    } else {
+        buttonState.lButtonLong = false;
+    }
+    lButtonPressedBefore = buttonState.lButtonPressed;
+    if (buttonState.rButtonPressed) {
+        if (rButtonPressedBefore) {
+            if (now - buttonState.rButtonPressedTime > LONG_BUTTON_PRESS_TIME) {
+                if (!buttonState.rButtonLong) {
+                    Serial.println("sBS: rButtonLong becomes true");
+                }
+                buttonState.rButtonLong = true;
+            }
+        } else {
+            buttonState.rButtonPressedTime = now;
+        }
+    } else {
+        buttonState.rButtonLong = false;
+    }
+    rButtonPressedBefore = buttonState.rButtonPressed;
+}
+
+/* later
+// Get details of next alarm (whether it's set or not)
+alarmDetails nextAlarm () {
+    alarmDetails next = nullptr;
+    // Get 'now' as day of week, hour, minute
+    int dow = timeClient.getDay();    // 0 = Sunday  from ezTime
+    int hour = timeClient.getHours();
+    int mins = timeClient.getMinutes();
+    alarmDetails today = alarmInfo.alarmDay[dow];
+    alarmDetails tomorrow = alarmInfo.alarmDay[(dow+1) % 7];
+    if ((today.alarmHour > hour) || ((today.alarmHour == hour) && (today.alarmMinute > mins))) {
+        next = today;
+    } else if ((tomorrow.alarmHour < hour) || ((tomorrow.alarmHour == hour) && (tomorrow.alarmMinute < mins))) {
+        due = tomorrow;
+    }
+    //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.alarmSet, today.alarmHour, today.alarmMinute, tomorrow.alarmSet, tomorrow.alarmHour, tomorrow.alarmMinute, due); 
+    return next;
+}
+*/
 
 static bool loadConfig() {
     File configFile = SPIFFS.open("/alarm.json", "r");
@@ -231,23 +362,6 @@ static bool loadConfig() {
     return true;
 }
 
-static bool saveConfig() {
-    StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
-    json["alarmHour"] = alarmHour;
-    json["alarmMinute"] = alarmMinute;
-    json["alarmActive"] = alarmActive;
-
-    File configFile = SPIFFS.open("/alarm.json", "w");
-    if (!configFile) {
-        Serial.println("Failed to open config file for writing");
-        return false;
-    }
-
-    json.printTo(configFile);
-    return true;
-}
-
 // notes in the melody:
 static int melody[] = {
     NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4, 0
@@ -258,43 +372,34 @@ static int noteDurations[] = {
     4, 8, 8, 4, 4, 4, 4, 4, 4
 };
 
+// FIXME non-blocking version of this, or use library
 static void soundAlarm() {
     for (int thisNote = 0; thisNote < 8; thisNote++) {
         // to calculate the note duration, take one second divided by the note type.
         //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
         int noteDuration = 1000 / noteDurations[thisNote];
-        tone(ALARM, melody[thisNote], noteDuration);
+        tone(BUZZER_PIN, melody[thisNote], noteDuration);
 
         // to distinguish the notes, set a minimum time between them.
         // the note's duration + 30% seems to work well:
         int pauseBetweenNotes = noteDuration * 1.30;
         delay(pauseBetweenNotes);
         // stop the tone playing:
-        noTone(ALARM);
+        noTone(BUZZER_PIN);
     }
 }
 
 static void adjustBrightness() {
-    int sensorValue = analogRead(LDR);
-    /*
-       if (sensorValue < 300) {
-       sensorValue = 300;
-       }
-       else if (sensorValue > 900) {
-       sensorValue = 900;
-       }
-     */
-    int level = sensorValue / 256;    map(sensorValue, 300, 900, 0, 7);
-    //Serial.print("seg brightness ");
-    //Serial.println(level);
-    display.setBrightness(level, sensorValue > 128);
+    int sensorValue = analogRead(LDR_PIN);
+    int level = sensorValue / 256;
+    //Serial.printf("aB: ldr=%d level=%d button=%d\n", sensorValue, level, buttonState.aButtonPressed);
+    display.setBrightness(level, sensorValue > 128 || buttonState.aButtonPressed || keepingLightOn);
 }
 
 static int timeHour;
 static int timeMinutes;
-static int lastEffectiveAlarm = 0;
 
-static bool checkForAlarm() {
+static void checkForAlarm() {
     if (alarmActive && timeHour == alarmHour && timeMinutes == alarmMinute) {
         if (!alarmHandled) {
             soundAlarm();
@@ -305,57 +410,32 @@ static bool checkForAlarm() {
 }
 
 ICACHE_RAM_ATTR void interuptButton() {
-    // Serial.println("interuptButton");
     buttonPressed = true;
     return;
 }
 
-// converts the dBm to a range between 0 and 100%
-static int8_t getWifiQuality() {
-    int32_t dbm = WiFi.RSSI();
-    if (dbm <= -100) {
-        return 0;
-    } else if (dbm >= -50) {
-        return 100;
-    } else {
-        return 2 * (dbm + 100);
-    }
-}
-
-static void displayTime(bool dotsVisible) {
+static void displayTime (void) {
 
     //Requesting the time in a specific format
-    // H = hours with leading 0
+    // G = hours without leading 0
     // i = minutes with leading 0
-    // so 9:34am would come back "0934"
-    String timeString = TZ.dateTime("Hi");
+    // so 9:34am would come back " 934"
+    String timeString = TZ.dateTime("Gi");
 
     timeHour = timeString.substring(0,2).toInt();
     timeMinutes = timeString.substring(2).toInt();
-
-    uint8_t data[4];
-
-    data[0] = display.encodeDigit(timeString.substring(0,1).toInt());
-    data[1] = display.encodeDigit(timeString.substring(1,2).toInt());
-
-
-    if (dotsVisible) {
-        // Turn on double dots
-        data[1] = data[1] | B10000000;
-    }
-
-    data[2] = display.encodeDigit(timeString.substring(2,3).toInt());
-    data[3] = display.encodeDigit(timeString.substring(3).toInt());
-
-    display.setSegments(data);
+    int timeDecimal = timeHour * 100 + timeMinutes;
+    uint8_t dots = (second() % 2) << 6; //(alarmDue() << 7) | (dotsVisible << 5);
+    display.showNumberDecEx(timeDecimal, dots, false);
+    
 }
 
 void setup() {
     Serial.begin(115200);
 
     //Onboard LED port Direction output
-    pinMode(LED,OUTPUT); 
-    digitalWrite(LED,HIGH); //LED OFF
+    pinMode(LED_PIN,OUTPUT); 
+    digitalWrite(LED_PIN,HIGH); //LED OFF
 
     display.setBrightness(2);
     display.setSegments(SEG_BOOT);
@@ -370,13 +450,13 @@ void setup() {
         loadConfig(); 
     }
 
-    pinMode(ALARM, OUTPUT);
-    digitalWrite(ALARM, LOW);
+    pinMode(BUZZER_PIN, OUTPUT);
+    digitalWrite(BUZZER_PIN, LOW);
 
-    pinMode(BUTTON, INPUT_PULLUP);
-    pinMode(SNOOZE_BUTTON, INPUT_PULLUP);
+    pinMode(RBUTTON_PIN, INPUT_PULLUP);
+    pinMode(LBUTTON_PIN, INPUT_PULLUP);
 
-    attachInterrupt(BUTTON, interuptButton, RISING);
+    attachInterrupt(RBUTTON_PIN, interuptButton, RISING);  // TODO both buttons, or probably not at all
 
     WiFiManager wifiManager;
     wifiManager.setAPCallback(configModeCallback);
@@ -410,45 +490,57 @@ void setup() {
     Serial.println("HTTP Server Started");
 
     // EZ Time
-    setDebug(INFO);
-    waitForSync();
+    //setDebug(INFO);
+    //waitForSync();
+    setInterval(60);
+    setServer(String("uk.pool.ntp.org"));
 
-    Serial.println();
-    Serial.println("UTC:             " + UTC.dateTime());
-
+    Serial.println("\nUTC: " + UTC.dateTime());
     TZ.setLocation(F(MYTIMEZONE));
-    Serial.print(F("Time in your set timezone:         "));
-    Serial.println(TZ.dateTime());
+    Serial.print("Local: " + TZ.dateTime());
 
+    timers::setup();
 }
 
 void loop() {
-    unsigned long now = millis();
-    if (now > adjustBrightnessDue) {
-        adjustBrightness();
-        adjustBrightnessDue = now + brightnessAdjustInterval;
+
+    timers::loop();
+
+    // ezTime events
+    events();
+
+    setButtonStates();
+    adjustBrightness();
+
+    // Light the display for a while even if it's dark
+    if (buttonState.aButtonPressed) {
+        keepingLightOn = true;
+        timers::setTimer(TIMER_KEEP_LIGHT_ON, KEEP_LIGHT_ON_TIME, dontKeepLightOn); 
     }
 
-    if (digitalRead(SNOOZE_BUTTON) == LOW && digitalRead(BUTTON) == LOW) {
-        int sensorValue = analogRead(LDR);
+    //unsigned long now = millis();
+    if (buttonState.lButtonLong) {
+        display.setSegments(SEG_CONF);
+        delay(1000);
+    } else if (digitalRead(LBUTTON_PIN) == LOW && digitalRead(RBUTTON_PIN) == LOW) {
+        int sensorValue = analogRead(LDR_PIN);
         display.showNumberDec(sensorValue, false);
-        oneSecondLoopDue = now;
-    } else if (digitalRead(SNOOZE_BUTTON) == LOW) {
+    } else if (digitalRead(LBUTTON_PIN) == LOW) {
         IPAddress ipAddress = WiFi.localIP();
         display.showNumberDec(ipAddress[3], false);
-        oneSecondLoopDue = now;
     } else {
-        if (now > oneSecondLoopDue) {
-            displayTime(dotsOn);
-            dotsOn = !dotsOn;
+//        if (now > oneSecondLoopDue) {
+            displayTime();
             checkForAlarm();
-            if (buttonPressed) {
+            if (buttonPressed) { // FIXME
                 alarmHandled = true;
                 buttonPressed = false;
             }
-            oneSecondLoopDue = now + 1000;
-        }
+//            oneSecondLoopDue = now + 1000;
+//        }
     }
 
     server.handleClient();
+
+    delay(500); // TESTING ONLY!
 }

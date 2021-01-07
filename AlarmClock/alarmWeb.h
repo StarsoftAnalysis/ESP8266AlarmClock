@@ -66,8 +66,8 @@ const char webpage[] PROGMEM = R"=====(
     <div class="container">
       <div class="row">
         <div class="col-sm">
-        <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.0cd<br>
-        <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>%
+        <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.1cd<br>
+        <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>
         </div>
         <div class="col-sm text-left text-sm-right">
             <i class="fab fa-github"></i> <a href="https://github.com/witnessmenow/arduino-alarm-clock/" target="_blank">GitHub</a><br>
