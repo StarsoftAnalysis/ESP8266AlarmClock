@@ -43,13 +43,6 @@ const char webpage[] PROGMEM = R"=====(
             </div>
         </div>
     </div>
-    <div class="form-row">
-        <div class="col-auto">
-            <hr>
-            <h3>Just for fun...</h3>
-            <p>ADC Value is : <span id="ADCValue">0</span></p>
-        </div>
-    </div>
   </div>
 </main>
 
@@ -58,7 +51,7 @@ const char webpage[] PROGMEM = R"=====(
       <div class="row">
         <div class="col-sm">
         <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.2cd<br>
-        <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>
+        <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span> Light level: <span id="ADCValue">0</span>
         </div>
         <div class="col-sm text-left text-sm-right">
             <i class="fab fa-github"></i> <a href="https://github.com/witnessmenow/arduino-alarm-clock/" target="_blank">GitHub</a><br>

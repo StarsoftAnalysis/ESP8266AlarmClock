@@ -18,10 +18,10 @@
     This version by Chris Dennis
 
     TODO:
+     - need to not re-trigger alarm if turned off or timed out within the minute
      - use ezTime events to trigger alarm?
-     - JSON6
  *******************************************************************/
-// * max alarm time? needs fixing
+// * ? define alarms as repeating or one-off.  or separate set of one-off alarms
 // * store alarm time as minutes since midnight instead of hour/minute
 // * snooze
 // * repeat e.g. alarm of after 5 minutes, then on again at 10 minutes, etc.
@@ -33,13 +33,9 @@
 // * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
 //   - need to combine https://bitbucket.org/teckel12/arduino-timer-free-tone/downloads/ with the non-blocking RTTTL
 //   - alarm to get louder gradually
-// * config in flash?
 // * web page 
 //   - choose from list of tunes
 //   - choose NTP server, time zone, DST rule
-// * home-grown timers instead of pseudothreads
-// * home-grown wifi library?
-// * JSON v6
 // DONE
 // * off completely if ldr < min -- not just on level
 // * colon if seconds % 2
@@ -50,6 +46,9 @@
 //   - rebooted at alarm time
 // * light on when button pressed -- keep it on for e.g. 5 seconds
 // * EEPROM instead of SPIFFS
+// * JSON v6
+// * home-grown timers instead of pseudothreads
+// * config in flash?
 
 //Included with ESP8266 Arduino Core
 #include <ESP8266WiFi.h>
@@ -82,6 +81,8 @@
 // Search for "Wifimanager" in the Arduino Library manager
 // https://github.com/tzapu/WiFiManager
 
+#include "debug.h"
+
 // Home-made timers
 #include "timers.h"
 
@@ -93,7 +94,7 @@
 #include "pitches.h"
 #include "displayConf.h"
 
-// XXX Declare 'webpage': 
+// Declare 'webpage': 
 #include "alarmWeb.h"
 
 // --- TimeZone (Change me!) ---
@@ -163,15 +164,15 @@ struct {
 
 // Alarm state etc.
 enum class alarmStateEnum { Off, Ringing, Snoozed, Paused };
-static alarmStateEnum alarmState;
+static alarmStateEnum alarmState = alarmStateEnum::Off;
 static long unsigned alarmStateStart;
-static const long unsigned alarmRingTime = 20000;  // ms
+static const long unsigned alarmRingTime = 5000;  // ms
 static int alarmRepeatCount;
 static const int alarmRepeatMax = 3;
-static const long unsigned alarmPauseTime = 20000;  // ms
+static const long unsigned alarmPauseTime = 5000;  // ms
 static int alarmSnoozeCount;
 static const int alarmSnoozeMax = 3;
-static const long unsigned alarmSnoozeTime = 20000;  // ms
+static const long unsigned alarmSnoozeTime = 5000;  // ms
  
 
 // converts the dBm to a range between 0 and 100%
@@ -370,9 +371,21 @@ config::alarmDetails_t nextAlarm () {
     int wd = weekday()-1;    // 0 = Sunday  from ezTime
     int hr = hour();
     int mn = minute();
+    if (second() > 10) {
+        // Hack so that alarms only get done once  -- may need tuning, especially if this isn't called every loop FIXME
+        mn += 1;
+        if (mn > 59) {
+            mn = 0;
+            hr += 1;    // this is getting silly
+            if (hr > 23) {
+                hr = 0;
+                wd = (wd+1) % 7;
+            }
+        }
+    }
     config::alarmDetails_t today = config::config.alarmDay[wd];
     config::alarmDetails_t tomorrow = config::config.alarmDay[(wd+1) % 7];
-    if ((today.alarmHour > hr) || ((today.alarmHour == hr) && (today.alarmMinute > mn))) {
+    if ((today.alarmHour > hr) || ((today.alarmHour == hr) && (today.alarmMinute >= mn))) {
         next = today;
     } else if ((tomorrow.alarmHour < hr) || ((tomorrow.alarmHour == hr) && (tomorrow.alarmMinute < mn))) {
         next = tomorrow;
@@ -418,85 +431,106 @@ static void adjustBrightness() {
 static int timeHour;
 static int timeMinutes;
 
-static void checkForAlarm() {
+static void checkForAlarm () {
     int hr = hour();
     int mn = minute();
     long unsigned now = millis();
+    //PRINTF("cFA: alarmState is %d   time is %02d:%02d\n", alarmState, hr, mn);
     switch (alarmState) {
         case alarmStateEnum::Off: {
             config::alarmDetails_t alarm = nextAlarm();
+            //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.alarmHour, alarm.alarmMinute, alarm.alarmSet);
             if (alarm.alarmSet && hr == alarm.alarmHour && mn == alarm.alarmMinute) {
                 // set time -- start ringing
                 alarmState = alarmStateEnum::Ringing;
                 alarmStateStart = now;  
                 alarmRepeatCount = 0;
                 alarmSnoozeCount = 0;
+                PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.alarmHour, alarm.alarmMinute);
             }
             break;
         }
         case alarmStateEnum::Ringing: {
             // FIXME consider the order of checking button presses here and in other cases
-            if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
-                // snooze
-                alarmState = alarmStateEnum::Snoozed;
-                alarmStateStart = now;
-            } else if (buttonState.rButtonPressed) {   // TODO better choices of long/short/both button presses
-                // fully off
-                alarmState = alarmStateEnum::Off;
-                alarmStateStart = now;  // not needed
+            if (buttonState.aButtonPressed) {
+                if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
+                    // snooze
+                    alarmState = alarmStateEnum::Snoozed;
+                    alarmStateStart = now;
+                    alarmSnoozeCount = 1;
+                    PRINTF("cFA: ringing -> snooze no. %d (lButton)\n", alarmSnoozeCount);
+                } else if (buttonState.rButtonPressed) {   // TODO better choices of long/short/both button presses
+                    // fully off
+                    alarmState = alarmStateEnum::Off;
+                    alarmStateStart = now;  // not needed
+                    PRINTLN("cFA: ringing -> off (rButton)");
+                }
             } else if (now - alarmStateStart > alarmRingTime) {
-                if (alarmRepeatCount > alarmRepeatMax) {
+                if (alarmRepeatCount >= alarmRepeatMax) {
                     // alarm ignored for long enough -- off
                     alarmState = alarmStateEnum::Off;
+                    PRINTLN("cFA: ringing -> off (timeout)");
                 } else {
                     // pause
                     alarmState= alarmStateEnum::Paused;
                     alarmStateStart = now;
-                    alarmRepeatCount += 1;
+                    PRINTLN("cFA: ringing -> paused");
                 }   
             }
             break;
         }
         case alarmStateEnum::Snoozed: {
-            if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
-                // restart the snooze from now, but increase the count
-                alarmStateStart = now;
-                alarmSnoozeCount += 1;
-            } else if (buttonState.rButtonPressed) {
-                // fully off
-                alarmState = alarmStateEnum::Off;
+            if (buttonState.aButtonPressed) {
+                if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
+                    // restart the snooze from now, but increase the count
+                    alarmStateStart = now;
+                    alarmSnoozeCount += 1;
+                    PRINTF("cFA: snoozing -> snooze no. %d (lButton)\n", alarmSnoozeCount);
+                } else if (buttonState.rButtonPressed) {
+                    // fully off
+                    alarmState = alarmStateEnum::Off;
+                    PRINTLN("cFA: snoozing -> off (rButton)");
+                }
             } else if (now - alarmStateStart > alarmSnoozeTime) {
-                if (alarmSnoozeCount > alarmSnoozeMax) {
+                if (alarmSnoozeCount >= alarmSnoozeMax) {
                     // alarm ignored for long enough -- off
                     alarmState = alarmStateEnum::Off;
+                    PRINTLN("cFA: snoozing -> off (enough snoozes))");
                 } else {
                     // back to ringing (but don't reset the counts)
                     alarmState = alarmStateEnum::Ringing;
                     alarmStateStart = now;  
+                    PRINTLN("cFA: snoozing -> ringing (timeout)");
                 }
             }
             break;
         }
         case alarmStateEnum::Paused: {
-            if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
-                // start the snooze from now
-                alarmState = alarmStateEnum::Ringing;
-                alarmStateStart = now;
-                alarmSnoozeCount += 1;
-            } else if (buttonState.rButtonPressed) {
-                // fully off
-                alarmState = alarmStateEnum::Off;
+            if (buttonState.aButtonPressed) {
+                if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
+                    // start the snooze from now
+                    alarmState = alarmStateEnum::Ringing;
+                    alarmStateStart = now;
+                    alarmSnoozeCount += 1;
+                    PRINTF("cFA: paused -> snooze no. %d (lButton)\n", alarmSnoozeCount);
+                } else if (buttonState.rButtonPressed) {
+                    // fully off
+                    alarmState = alarmStateEnum::Off;
+                    PRINTLN("cFA: paused -> off (rButton)");
+                }
             } else if (now - alarmStateStart > alarmPauseTime) {
                 // back to ringing 
                 alarmState = alarmStateEnum::Ringing;
                 alarmStateStart = now;  
                 alarmRepeatCount += 1;
+                PRINTF("cFA: paused -> ringing, repeat %d\n", alarmRepeatCount);
             }
             break;
         }
     }
         
     //TODO if now off, silence it immediately
+    //PRINTLN("cFA: need to silence tune now");  only if ringing
     
 }
 
@@ -583,6 +617,8 @@ void setup() {
     Serial.print("Local: " + TZ.dateTime());
 
     timers::setup();
+
+    alarmState = alarmStateEnum::Off;
 }
 
 void loop() {
@@ -610,6 +646,9 @@ void loop() {
     if (buttonState.lButtonLong) {
         display.setSegments(SEG_CONF);
         delay(1000);
+        // perhaps set buttons off so that not acted on again this loop FIXME
+    }
+    /*
     } else if (digitalRead(LBUTTON_PIN) == LOW && digitalRead(RBUTTON_PIN) == LOW) {
         int sensorValue = analogRead(LDR_PIN);
         display.showNumberDec(sensorValue, false);
@@ -617,11 +656,12 @@ void loop() {
         IPAddress ipAddress = WiFi.localIP();
         display.showNumberDec(ipAddress[3], false);
     } else {
+    */
         displayTime();
         checkForAlarm();
-    }
+    //}
 
     server.handleClient();
 
-    //delay(500); // TESTING ONLY!
+    delay(100); // TESTING ONLY!
 }
