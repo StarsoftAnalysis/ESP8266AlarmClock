@@ -228,10 +228,10 @@ void handleSetAlarm() {
     webActive = true;
     config_t newConfig;
 
-    //Serial.println("hSA: args: ");
+    Serial.println("hSA: args: ");
     for (int i = 0; i < server.args(); i++) {
         //if (server.argName(i) == "alarm") 
-        //Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
+        Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
         if (server.argName(i).substring(0,9) == "alarmTime") {
             //Serial.printf("\t\tdaystring = %s\n", server.argName(i).substring(9).c_str());
             int dy = constrain(server.argName(i).substring(9).toInt(), 0, 6);  // returns 0 on error!
@@ -239,9 +239,9 @@ void handleSetAlarm() {
             int indexOfColon = alarmTime.indexOf(":");
             int alarmHour = constrain(alarmTime.substring(0, indexOfColon).toInt(), 0, 23);
             int alarmMinute = constrain(alarmTime.substring(indexOfColon + 1).toInt(), 0, 59);
-            //Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
+            Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
             newConfig.alarmDay[dy].hour = alarmHour;
-            newConfig.alarmDay[dy].hour = alarmMinute;
+            newConfig.alarmDay[dy].minute = alarmMinute;
         } else if (server.argName(i).substring(0,8) == "alarmSet") {
             //Serial.printf("\t\tdaystring = %s   %s\n", server.argName(i).c_str(), server.argName(i).substring(8).c_str());
             int dy = constrain(server.argName(i).substring(8).toInt(), 0, 6);  // returns 0 on error!
@@ -304,9 +304,9 @@ void handleGetAlarm() {
     for (int i = 0; i < 7; i++) {
         JsonObject obj = days.createNestedObject();
         //obj["alarmHour"] = config.alarmDay[i].hour;
-        //obj["alarmMinute"] = config.alarmDay[i].hour;
+        //obj["alarmMinute"] = config.alarmDay[i].minute;
         char timeString[6];
-        sprintf(timeString, "%02d:%02d", config.alarmDay[i].hour, config.alarmDay[i].hour);
+        sprintf(timeString, "%02d:%02d", config.alarmDay[i].hour, config.alarmDay[i].minute);
         obj["alarmTime"] = timeString;
         obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
         //days.add(obj);
@@ -379,24 +379,16 @@ alarmDetails_t nextAlarm () {
     int mn = minute();
     if (second() > 10) {
         // Hack so that alarms only get done once  -- may need tuning, especially if this isn't called every loop FIXME
-        mn += 1;
-        if (mn > 59) {
-            mn = 0;
-            hr += 1;    // this is getting silly
-            if (hr > 23) {
-                hr = 0;
-                wd = (wd+1) % 7;
-            }
-        }
+        mn += 1;    // Don't need to adjust if mn>59
     }
     alarmDetails_t today = config.alarmDay[wd];
     alarmDetails_t tomorrow = config.alarmDay[(wd+1) % 7];
-    if ((today.hour > hr) || ((today.hour == hr) && (today.hour >= mn))) {
+    if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
         next = today;
-    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.hour < mn))) {
+    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
         next = tomorrow;
     }
-    //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.set, today.hour, today.hour, tomorrow.set, tomorrow.hour, tomorrow.hour, due); 
+    //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.set, today.hour, today.minute, tomorrow.set, tomorrow.hour, tomorrow.minute, due); 
     return next;
 }
 
@@ -449,14 +441,14 @@ static void checkForAlarm () {
     switch (alarmState) {
         case alarmStateEnum::Off: {
             alarmDetails_t alarm = nextAlarm();
-            //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.hour, alarm.set);
-            if (alarm.set && hr == alarm.hour && mn == alarm.hour) {
+            //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
+            if (alarm.set && hr == alarm.hour && mn == alarm.minute) {
                 // set time -- start ringing
                 alarmState = alarmStateEnum::Ringing;
                 alarmStateStart = now;  
                 alarmRepeatCount = 0;
                 alarmSnoozeCount = 0;
-                PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.hour);
+                PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.minute);
             }
             break;
         }
@@ -651,18 +643,21 @@ void loop() {
         if (rtttl::isPlaying()) {
             rtttl::play();	// keep playing stuff
         } else {
-            rtttl::begin(BUZZER_PIN, alarmTune);    // alarmInfo.alarmTune);
+            PRINTLN("starting alarm tune");
+            rtttl::begin(BUZZER_PIN, alarmTune);
         }
-        // carry on sounding it...
-        // else stop it (or do that in checkForAlarm)
     } else {
-        rtttl::stop();	// stop the alarm
+        if (rtttl::isPlaying()) {
+            rtttl::stop();	// stop the alarm
+            PRINTLN("stopped playing");
+        }
     }
 
     //unsigned long now = millis();
     if (buttonState.lButtonLong) {
         display.setSegments(SEG_CONF);
         delay(1000);
+        PRINTLN("Config mode -- would be here...");
         // perhaps set buttons off so that not acted on again this loop FIXME
     }
     /*
