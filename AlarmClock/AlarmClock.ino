@@ -137,7 +137,7 @@ static bool buttonPressed = false;
 #define KEEP_LIGHT_ON_TIME 5000
 static bool keepingLightOn = false;
 
-/* Now as config::config
+/* Now as config
 // here is all the alarm info
 typedef struct {
     byte alarmHour;
@@ -222,7 +222,7 @@ void handleSetAlarm() {
         return;
     }
     webActive = true;
-    config::config_t newConfig;
+    config_t newConfig;
 
     //Serial.println("hSA: args: ");
     for (int i = 0; i < server.args(); i++) {
@@ -249,7 +249,7 @@ void handleSetAlarm() {
         }
     }
 
-    config::storeConfig(&newConfig);
+    storeConfig(&newConfig);
     server.send(200, "text/html", "Alarm Set");
     webActive=false;
 }
@@ -261,7 +261,7 @@ void handleDeleteAlarm() {
     alarmHour = 0;
     alarmMinute = 0;
     alarmActive = false;
-    config::storeConfig();
+    storeConfig();
     Serial.print("Alarm deleted");
     server.send(200, "text/plain", "--:--");
 }
@@ -292,17 +292,17 @@ void handleGetAlarm() {
     DynamicJsonDocument json(768);
 
     //json["alarmTune"] = alarmInfo.alarmTune;
-    json["volume"] = config::config.volume;
+    json["volume"] = config.volume;
 
     JsonArray days = json.createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
         JsonObject obj = days.createNestedObject();
-        //obj["alarmHour"] = config::config.alarmDay[i].alarmHour;
-        //obj["alarmMinute"] = config::config.alarmDay[i].alarmMinute;
+        //obj["alarmHour"] = config.alarmDay[i].alarmHour;
+        //obj["alarmMinute"] = config.alarmDay[i].alarmMinute;
         char timeString[6];
-        sprintf(timeString, "%02d:%02d", config::config.alarmDay[i].alarmHour, config::config.alarmDay[i].alarmMinute);
+        sprintf(timeString, "%02d:%02d", config.alarmDay[i].alarmHour, config.alarmDay[i].alarmMinute);
         obj["alarmTime"] = timeString;
-        obj["alarmSet"] = (config::config.alarmDay[i].alarmSet ? "1" : "0");
+        obj["alarmSet"] = (config.alarmDay[i].alarmSet ? "1" : "0");
         //days.add(obj);
     }
     //json["alarmDay2"] = days;
@@ -365,8 +365,8 @@ static void setButtonStates (void) {
 }
 
 // Get details of next alarm (whether it's set or not)
-config::alarmDetails_t nextAlarm () {
-    config::alarmDetails_t next;
+alarmDetails_t nextAlarm () {
+    alarmDetails_t next;
     // Get 'now' as day of week, hour, minute
     int wd = weekday()-1;    // 0 = Sunday  from ezTime
     int hr = hour();
@@ -383,8 +383,8 @@ config::alarmDetails_t nextAlarm () {
             }
         }
     }
-    config::alarmDetails_t today = config::config.alarmDay[wd];
-    config::alarmDetails_t tomorrow = config::config.alarmDay[(wd+1) % 7];
+    alarmDetails_t today = config.alarmDay[wd];
+    alarmDetails_t tomorrow = config.alarmDay[(wd+1) % 7];
     if ((today.alarmHour > hr) || ((today.alarmHour == hr) && (today.alarmMinute >= mn))) {
         next = today;
     } else if ((tomorrow.alarmHour < hr) || ((tomorrow.alarmHour == hr) && (tomorrow.alarmMinute < mn))) {
@@ -438,7 +438,7 @@ static void checkForAlarm () {
     //PRINTF("cFA: alarmState is %d   time is %02d:%02d\n", alarmState, hr, mn);
     switch (alarmState) {
         case alarmStateEnum::Off: {
-            config::alarmDetails_t alarm = nextAlarm();
+            alarmDetails_t alarm = nextAlarm();
             //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.alarmHour, alarm.alarmMinute, alarm.alarmSet);
             if (alarm.alarmSet && hr == alarm.alarmHour && mn == alarm.alarmMinute) {
                 // set time -- start ringing
@@ -565,8 +565,8 @@ void setup() {
     display.setBrightness(2);
     display.setSegments(SEG_BOOT);
 
-    config::setup();
-    config::loadConfig(); 
+    configSetup();
+    loadConfig(); 
 
     pinMode(BUZZER_PIN, OUTPUT);
     digitalWrite(BUZZER_PIN, LOW);
