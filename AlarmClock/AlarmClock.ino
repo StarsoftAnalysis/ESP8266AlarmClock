@@ -1,6 +1,6 @@
 /*******************************************************************
     BLough Alarm Clock
-    An Alarm clock that gets it's time from the internet
+    An Alarm clock that gets its time from the internet
 
     Features:
     - Web interface for setting the alarm
@@ -9,24 +9,28 @@
 
     By Brian Lough
 
-    For use with: https://www.tindie.com/products/15402/
+    For use with Brian Lough's alarm clock kit at https://www.tindie.com/products/15402/
+    (or similar ESP8266-based circuit)
     
-    YouTube: https://www.youtube.com/brianlough
-    Tindie: https://www.twitch.tv/brianlough
-    Twitter: https://twitter.com/witnessmenow
-
     This version by Chris Dennis
 
-    TODO:
-     - need to not re-trigger alarm if turned off or timed out within the minute
-     - use ezTime events to trigger alarm?
- *******************************************************************/
-// * ? define alarms as repeating or one-off.  or separate set of one-off alarms
-// * store alarm time as minutes since midnight instead of hour/minute
-// * snooze
-// * repeat e.g. alarm of after 5 minutes, then on again at 10 minutes, etc.
-// * snooze/pause times and counts in config and webpage
-// * button functions:
+    Modified from Brian Lough's code at https://github.com/witnessmenow/arduino-alarm-clock,
+    with additional ideas and code from James Brown's version at https://github.com/jbrown123/arduino-alarm-clock 
+
+    Features:
+    - snooze and repeat alarm
+    - RTTTL tunes
+    - display is completely off at time, comes on if any button is pressed
+
+    Features planned:
+    - set and cancel alarm time via buttons
+    - likewise for current time (in case internet is not available)
+
+****************************************************************/
+    
+
+// TODO:
+// * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
 // * check summer time etc (i.e. NTPClient vs Timezone) - use UK. function, not direct from ntpclient
@@ -36,6 +40,10 @@
 // * web page 
 //   - choose from list of tunes
 //   - choose NTP server, time zone, DST rule
+// NO
+// - use ezTime events to trigger alarm?
+// * store alarm time as minutes since midnight instead of hour/minute
+// * ? define alarms as repeating or one-off.  or separate set of one-off alarms
 // DONE
 // * off completely if ldr < min -- not just on level
 // * colon if seconds % 2
@@ -48,7 +56,11 @@
 // * EEPROM instead of SPIFFS
 // * JSON v6
 // * home-grown timers instead of pseudothreads
+// * need to not re-trigger alarm if turned off or timed out within the minute
 // * config in flash?
+// * snooze
+// * repeat e.g. alarm of after 5 minutes, then on again at 10 minutes, etc.
+// * snooze/pause times and counts in config and webpage
 
 //Included with ESP8266 Arduino Core
 #include <ESP8266WiFi.h>
