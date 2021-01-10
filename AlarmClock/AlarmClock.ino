@@ -81,6 +81,9 @@
 // Search for "Wifimanager" in the Arduino Library manager
 // https://github.com/tzapu/WiFiManager
 
+//#include <TimerFreeTone.h>
+#include <NonBlockingRtttl.h>
+
 #include "debug.h"
 
 // Home-made timers
@@ -128,11 +131,11 @@ ESP8266WebServer server(80);
 
 static Timezone TZ;
 
-static int alarmHour = 0;
-static int alarmMinute = 0;
-static bool alarmActive = false;
-static bool alarmHandled = false;
-static bool buttonPressed = false;
+//static int alarmHour = 0;
+//static int alarmMinute = 0;
+//static bool alarmActive = false;
+//static bool alarmHandled = false;
+//static bool buttonPressed = false;
 
 #define KEEP_LIGHT_ON_TIME 5000
 static bool keepingLightOn = false;
@@ -174,6 +177,7 @@ static int alarmSnoozeCount;
 static const int alarmSnoozeMax = 3;
 static const long unsigned alarmSnoozeTime = 5000;  // ms
  
+const char *alarmTune = "Futurama:d=8,o=5,b=112:e,4e,4e,a,4a,4d,4d,e,4e,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,4e,4e,a,4a,4d,4d,e,g,f#,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,p,16e,16e,e,d#,d,d,c#,c#,2p";
 
 // converts the dBm to a range between 0 and 100%
 static int getWifiQuality() {
@@ -236,14 +240,14 @@ void handleSetAlarm() {
             int alarmHour = constrain(alarmTime.substring(0, indexOfColon).toInt(), 0, 23);
             int alarmMinute = constrain(alarmTime.substring(indexOfColon + 1).toInt(), 0, 59);
             //Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
-            newConfig.alarmDay[dy].alarmHour = alarmHour;
-            newConfig.alarmDay[dy].alarmMinute = alarmMinute;
+            newConfig.alarmDay[dy].hour = alarmHour;
+            newConfig.alarmDay[dy].hour = alarmMinute;
         } else if (server.argName(i).substring(0,8) == "alarmSet") {
             //Serial.printf("\t\tdaystring = %s   %s\n", server.argName(i).c_str(), server.argName(i).substring(8).c_str());
             int dy = constrain(server.argName(i).substring(8).toInt(), 0, 6);  // returns 0 on error!
             bool alarmSet = (server.arg(i) == "1");
             //Serial.printf("\t\td=%d  %s\n", dy, alarmSet ? "y" : "n");
-            newConfig.alarmDay[dy].alarmSet = alarmSet;
+            newConfig.alarmDay[dy].set = alarmSet;
         } else if (server.argName(i) == "volume") {
             newConfig.volume = constrain(server.arg(i).toInt(), 10, 100);
         }
@@ -267,6 +271,7 @@ void handleDeleteAlarm() {
 }
 */
 
+/*
 void oldhandleGetAlarm() {
     char alarmString[5];
     if (alarmActive) {
@@ -276,6 +281,7 @@ void oldhandleGetAlarm() {
     }
     server.send(200, "text/plain", alarmString);
 }
+*/
 
 void handleGetAlarm() {
     // single threaded
@@ -297,12 +303,12 @@ void handleGetAlarm() {
     JsonArray days = json.createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
         JsonObject obj = days.createNestedObject();
-        //obj["alarmHour"] = config.alarmDay[i].alarmHour;
-        //obj["alarmMinute"] = config.alarmDay[i].alarmMinute;
+        //obj["alarmHour"] = config.alarmDay[i].hour;
+        //obj["alarmMinute"] = config.alarmDay[i].hour;
         char timeString[6];
-        sprintf(timeString, "%02d:%02d", config.alarmDay[i].alarmHour, config.alarmDay[i].alarmMinute);
+        sprintf(timeString, "%02d:%02d", config.alarmDay[i].hour, config.alarmDay[i].hour);
         obj["alarmTime"] = timeString;
-        obj["alarmSet"] = (config.alarmDay[i].alarmSet ? "1" : "0");
+        obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
         //days.add(obj);
     }
     //json["alarmDay2"] = days;
@@ -385,15 +391,16 @@ alarmDetails_t nextAlarm () {
     }
     alarmDetails_t today = config.alarmDay[wd];
     alarmDetails_t tomorrow = config.alarmDay[(wd+1) % 7];
-    if ((today.alarmHour > hr) || ((today.alarmHour == hr) && (today.alarmMinute >= mn))) {
+    if ((today.hour > hr) || ((today.hour == hr) && (today.hour >= mn))) {
         next = today;
-    } else if ((tomorrow.alarmHour < hr) || ((tomorrow.alarmHour == hr) && (tomorrow.alarmMinute < mn))) {
+    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.hour < mn))) {
         next = tomorrow;
     }
-    //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.alarmSet, today.alarmHour, today.alarmMinute, tomorrow.alarmSet, tomorrow.alarmHour, tomorrow.alarmMinute, due); 
+    //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.set, today.hour, today.hour, tomorrow.set, tomorrow.hour, tomorrow.hour, due); 
     return next;
 }
 
+/*
 // notes in the melody:
 static int melody[] = {
     NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4, 0
@@ -403,8 +410,10 @@ static int melody[] = {
 static int noteDurations[] = {
     4, 8, 8, 4, 4, 4, 4, 4, 4
 };
+*/
 
 // FIXME non-blocking version of this, or use library
+/*
 static void soundAlarm() {
     for (int thisNote = 0; thisNote < 8; thisNote++) {
         // to calculate the note duration, take one second divided by the note type.
@@ -420,6 +429,7 @@ static void soundAlarm() {
         noTone(BUZZER_PIN);
     }
 }
+*/
 
 static void adjustBrightness() {
     int sensorValue = analogRead(LDR_PIN);
@@ -439,14 +449,14 @@ static void checkForAlarm () {
     switch (alarmState) {
         case alarmStateEnum::Off: {
             alarmDetails_t alarm = nextAlarm();
-            //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.alarmHour, alarm.alarmMinute, alarm.alarmSet);
-            if (alarm.alarmSet && hr == alarm.alarmHour && mn == alarm.alarmMinute) {
+            //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.hour, alarm.set);
+            if (alarm.set && hr == alarm.hour && mn == alarm.hour) {
                 // set time -- start ringing
                 alarmState = alarmStateEnum::Ringing;
                 alarmStateStart = now;  
                 alarmRepeatCount = 0;
                 alarmSnoozeCount = 0;
-                PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.alarmHour, alarm.alarmMinute);
+                PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.hour);
             }
             break;
         }
@@ -534,10 +544,10 @@ static void checkForAlarm () {
     
 }
 
-ICACHE_RAM_ATTR void interuptButton() {
-    buttonPressed = true;
-    return;
-}
+//ICACHE_RAM_ATTR void interuptButton() {
+//    buttonPressed = true;
+//    return;
+//}
 
 static void displayTime (void) {
 
@@ -574,7 +584,7 @@ void setup() {
     pinMode(RBUTTON_PIN, INPUT_PULLUP);
     pinMode(LBUTTON_PIN, INPUT_PULLUP);
 
-    attachInterrupt(RBUTTON_PIN, interuptButton, RISING);  // TODO both buttons, or probably not at all
+    //attachInterrupt(RBUTTON_PIN, interuptButton, RISING);  // TODO both buttons, or probably not at all
 
     WiFiManager wifiManager;
     wifiManager.setAPCallback(configModeCallback);
@@ -638,8 +648,15 @@ void loop() {
     }
 
     if (alarmState == alarmStateEnum::Ringing) {
+        if (rtttl::isPlaying()) {
+            rtttl::play();	// keep playing stuff
+        } else {
+            rtttl::begin(BUZZER_PIN, alarmTune);    // alarmInfo.alarmTune);
+        }
         // carry on sounding it...
         // else stop it (or do that in checkForAlarm)
+    } else {
+        rtttl::stop();	// stop the alarm
     }
 
     //unsigned long now = millis();

@@ -51,7 +51,8 @@ const char webpage[] PROGMEM = R"=====(
       <div class="row">
         <div class="col-sm">
         <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.2cd<br>
-        <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span> Light level: <span id="ADCValue">0</span>
+        <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>% 
+        <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
         </div>
         <div class="col-sm text-left text-sm-right">
             <i class="fab fa-github"></i> <a href="https://github.com/witnessmenow/arduino-alarm-clock/" target="_blank">GitHub</a><br>
@@ -63,10 +64,10 @@ const char webpage[] PROGMEM = R"=====(
 
 <script>
 $(document).ready(function() {
-        getWiFi();
-        getData();
-        getAlarm();
-        });
+    getWiFi();
+    getData();
+    getAlarm();
+});
 
 function saveAlarm() {
     var parms = "volume=" + $("#volume").val();
