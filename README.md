@@ -3,7 +3,7 @@
 ESP8266 code to run a simple alarm clock, running on [Brian Lough](http://blough.ie/bac/)'s
 alarm clock kit, which is available from [Tindie](https://www.tindie.com/products/brianlough/blough-alarm-clock-shield-for-wemos-d1-mini/).
 
-This is StarSoftAnalysis's version, based on [Brian](https://github.com/witnessmenow/arduino-alarm-clock)'s, and incorporating
+This is StarSoftAnalysis's version of the software, based on [Brian](https://github.com/witnessmenow/arduino-alarm-clock)'s, and incorporating
 features from [James Brown's fork](https://github.com/jbrown123/arduino-alarm-clock).
 
 ## Features

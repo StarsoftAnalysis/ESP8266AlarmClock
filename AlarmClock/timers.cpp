@@ -1,4 +1,7 @@
-// utils.cpp
+// timers.cpp
+
+// Simple timer routines to replace all that tedious messing about with
+//   millis() - startTime > duration
 
 #include "Arduino.h"
 #include <stddef.h>
