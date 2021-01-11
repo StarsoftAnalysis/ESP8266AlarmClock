@@ -181,13 +181,13 @@ struct {
 enum class alarmStateEnum { Off, Ringing, Snoozed, Paused };
 static alarmStateEnum alarmState = alarmStateEnum::Off;
 static long unsigned alarmStateStart;
-static const long unsigned alarmRingTime = 5000;  // ms
+static const long unsigned alarmRingTime = 60 * 1000;  // ms
 static int alarmRepeatCount;
 static const int alarmRepeatMax = 3;
-static const long unsigned alarmPauseTime = 5000;  // ms
+static const long unsigned alarmPauseTime = 60 * 1000;  // ms
 static int alarmSnoozeCount;
 static const int alarmSnoozeMax = 3;
-static const long unsigned alarmSnoozeTime = 5000;  // ms
+static const long unsigned alarmSnoozeTime = 60 * 1000;  // ms
  
 const char *alarmTune = "Futurama:d=8,o=5,b=112:e,4e,4e,a,4a,4d,4d,e,4e,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,4e,4e,a,4a,4d,4d,e,g,f#,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,p,16e,16e,e,d#,d,d,c#,c#,2p";
 
@@ -334,9 +334,9 @@ void handleGetAlarm() {
 }
 
 void configModeCallback (WiFiManager *myWiFiManager) {
-    Serial.println("Entered config mode");
+    Serial.println("Entered WiFi config mode");
     Serial.println(WiFi.softAPIP());
-    display.setSegments(SEG_CONF);
+    display.setSegments(SEG_WIFI);
 }
 
 static void setButtonStates (void) {
@@ -441,9 +441,6 @@ static void adjustBrightness() {
     //Serial.printf("aB: ldr=%d level=%d button=%d\n", sensorValue, level, buttonState.aButtonPressed);
     display.setBrightness(level, sensorValue > 128 || buttonState.aButtonPressed || keepingLightOn);
 }
-
-static int timeHour;
-static int timeMinutes;
 
 static void checkForAlarm () {
     int hr = hour();
@@ -556,15 +553,17 @@ static void checkForAlarm () {
 static void displayTime (void) {
 
     //Requesting the time in a specific format
-    // G = hours without leading 0
+    // H = hours with leading 0
     // i = minutes with leading 0
-    // so 9:34am would come back " 934"
-    String timeString = TZ.dateTime("Gi");
-
-    timeHour = timeString.substring(0,2).toInt();
-    timeMinutes = timeString.substring(2).toInt();
+    // so 9:34am would come back "0934"
+    String timeString = TZ.dateTime("Hi");
+    int timeHour = timeString.substring(0,2).toInt();
+    int timeMinutes = timeString.substring(2).toInt();
     int timeDecimal = timeHour * 100 + timeMinutes;
-    uint8_t dots = (second() % 2) << 6; //(alarmDue() << 7) | (dotsVisible << 5);
+    //PRINTF("dT: timeString=%s h=%d m=%d\n", timeString.c_str(), timeHour, timeMinutes);
+    // Pulse colon every second, but keep it on if the alarm is set
+    bool showColon = (second() % 2) || nextAlarm().set;
+    uint8_t dots = showColon << 6;
     display.showNumberDecEx(timeDecimal, dots, false);
     
 }
@@ -592,7 +591,7 @@ void setup() {
 
     WiFiManager wifiManager;
     wifiManager.setAPCallback(configModeCallback);
-    wifiManager.autoConnect("AlarmClock", "password");
+    wifiManager.autoConnect("AlarmClock");  // , "password");
 
     Serial.println("");
     Serial.print("WiFi Connected");
@@ -687,5 +686,5 @@ void loop() {
 
     server.handleClient();
 
-    delay(100); // TESTING ONLY!
+    //delay(100); // TESTING ONLY!
 }

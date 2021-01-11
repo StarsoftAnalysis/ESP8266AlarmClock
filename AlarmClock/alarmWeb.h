@@ -55,7 +55,7 @@ const char webpage[] PROGMEM = R"=====(
         <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
         </div>
         <div class="col-sm text-left text-sm-right">
-            <i class="fab fa-github"></i> <a href="https://github.com/witnessmenow/arduino-alarm-clock/" target="_blank">GitHub</a><br>
+            <i class="fab fa-github"></i> <a href="https://github.com/starsoftanalysis/arduino-alarm-clock/" target="_blank">GitHub</a><br>
             <i class="far fa-question-circle"></i> <a href="http://blough.ie/bac/" target="_blank">Help & Support</a>
         </div>
       </div>
