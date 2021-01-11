@@ -26,22 +26,26 @@ const char webpage[] PROGMEM = R"=====(
 <main role="main" class="flex-shrink-0 pb-4">
   <div class="container pt-5">
     <div class="form-row pt-3">
-        <div class="col-auto">
-            <h1>Set the alarm</h1>
-            <div>
-              <table>
-                <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
-                <tr><td>Sunday</td><td><input id="time0" type="time" class="form-control" aria-label="Alarm time Sunday"></td><td><input id="set0" class="form-control" type="checkbox" aria-label="Alarm set Sunday"</td></tr> 
-                <tr><td>Monday</td><td><input id="time1" type="time" class="form-control" aria-label="Alarm time Monday"></td><td><input id="set1" class="form-control" type="checkbox" aria-label="Alarm set Monday"</td></tr> 
-                <tr><td>Tuesday</td><td><input id="time2" type="time" class="form-control" aria-label="Alarm time Tuesday"></td><td><input id="set2" class="form-control" type="checkbox" aria-label="Alarm set Tuesday"</td></tr> 
-                <tr><td>Wednesday</td><td><input id="time3" type="time" class="form-control" aria-label="Alarm time Wednesday"></td><td><input id="set3" class="form-control" type="checkbox" aria-label="Alarm set Wednesday"</td></tr> 
-                <tr><td>Thursday</td><td><input id="time4" type="time" class="form-control" aria-label="Alarm time Thursday"></td><td><input id="set4" class="form-control" type="checkbox" aria-label="Alarm set Thursday"</td></tr> 
-                <tr><td>Friday</td><td><input id="time5" type="time" class="form-control" aria-label="Alarm time Friday"></td><td><input id="set5" class="form-control" type="checkbox" aria-label="Alarm set Friday"</td></tr> 
-                <tr><td>Saturday</td><td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td><td><input id="set6" class="form-control" type="checkbox" aria-label="Alarm set Saturday"</td></tr> 
-              </table>
-              <button class="btn btn-primary" type=button id=sendAlarm onclick='saveAlarm()'>Save</button>
-            </div>
+      <div class="col-auto">
+        <h1>Set the alarm</h1>
+        <div class=form-group>
+          <table>
+            <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
+            <tr><td>Sunday</td><td><input id="time0" type="time" class="form-control" aria-label="Alarm time Sunday"></td><td><input id="set0" class="form-control" type="checkbox" aria-label="Alarm set Sunday"</td></tr> 
+            <tr><td>Monday</td><td><input id="time1" type="time" class="form-control" aria-label="Alarm time Monday"></td><td><input id="set1" class="form-control" type="checkbox" aria-label="Alarm set Monday"</td></tr> 
+            <tr><td>Tuesday</td><td><input id="time2" type="time" class="form-control" aria-label="Alarm time Tuesday"></td><td><input id="set2" class="form-control" type="checkbox" aria-label="Alarm set Tuesday"</td></tr> 
+            <tr><td>Wednesday</td><td><input id="time3" type="time" class="form-control" aria-label="Alarm time Wednesday"></td><td><input id="set3" class="form-control" type="checkbox" aria-label="Alarm set Wednesday"</td></tr> 
+            <tr><td>Thursday</td><td><input id="time4" type="time" class="form-control" aria-label="Alarm time Thursday"></td><td><input id="set4" class="form-control" type="checkbox" aria-label="Alarm set Thursday"</td></tr> 
+            <tr><td>Friday</td><td><input id="time5" type="time" class="form-control" aria-label="Alarm time Friday"></td><td><input id="set5" class="form-control" type="checkbox" aria-label="Alarm set Friday"</td></tr> 
+            <tr><td>Saturday</td><td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td><td><input id="set6" class="form-control" type="checkbox" aria-label="Alarm set Saturday"</td></tr> 
+          </table>
+          <label for=melody><h3>RTTTL Melody</h3></label>
+          <textarea id=melody class="form-control" rows="5" xcols="60" maxlength=1000></textarea>
+          <label for=tz><h3>Timezone</h3></label>
+          <input type=text id=tz class="form-control" maxlength=32>
+          <button class="btn btn-primary" type=button id=sendAlarm onclick='saveAlarm()'>Save</button>
         </div>
+      </div>
     </div>
   </div>
 </main>
@@ -71,15 +75,16 @@ $(document).ready(function() {
 
 function saveAlarm() {
     var parms = "volume=" + $("#volume").val();
-    //parms += "&alarmSound=" + encodeURIComponent($("#alarmSound").val());
     for (var dy = 0; dy < 7; dy++) {
-        var alarmTime = $( "#time"+dy ).val();
+        var alarmTime = $("#time"+dy).val();
         if (!alarmTime) {
             alarmTime = "00:00";
         }
         parms += "&alarmTime" + dy + "=" + alarmTime + ";";
         parms += "&alarmSet"  + dy + "=" + ($("#set"+dy).prop('checked') ? "1" : "0") + ";"
     }
+    parms += "&melody=" + encodeURIComponent($("#melody").val());
+    parms += "&tz=" + encodeURIComponent($("#tz").val());
     $.ajax({"url": "setAlarm?" + parms, "success": ajaxSuccess, "error": ajaxError});
 }
 
@@ -93,33 +98,19 @@ function ajaxSuccess (data, status) {
 function ajaxError (data, status) {
     $("#status").html("ERROR!  data=" + data + ", status=" + status);
     //window.setTimeout(function(){$("#status").html("")}, 2000);
-    getAlarm();	// update values (in case server constrained results)
+    //getAlarm();	// update values (in case server constrained results)
 }
-
-//    window.setInterval(getAlarm, 2000);
-
 
 function displayAlarm(data) {
     var obj = JSON.parse(data);
     //console.log("displayAlarm got %s i.e. %s", data, obj);
     $("#volume").val(obj["volume"]);
-    //$("#alarmSound").val(obj["alarmSound"]);
+    $("#melody").val(obj["melody"]);
+    $("#tz").val(obj["tz"]);
     for (var dy = 0; dy < 7; dy++) {
-        //var alarmTime = obj["alarmDay"][dy]["alarmHour"].padStart(2, "0") + ":" + obj["alarmDay"][dy]["alarmMinute"].padStart(2, "0");
         $("#time"+dy).val(obj["alarmDay"][dy]["alarmTime"]);
         let alarmSet = obj["alarmDay"][dy]["alarmSet"] == "1";
         $("#set"+dy).prop("checked", alarmSet);
-    }
-}
-function OlddisplayAlarm(data) {
-
-    $("#currentAlarm").html(data);
-    $("#deleteAlarm").removeClass('invisible');
-    if(data!="--:--"){
-        $("#deleteAlarm").show();
-    }
-    else{
-        $("#deleteAlarm").hide();
     }
 }
 
@@ -127,15 +118,10 @@ function getAlarm(){
     $.ajax({"url": "getAlarm",
             "success": displayAlarm});
 }
-//function deleteAlarm(){
-//  $.ajax({"url": "deleteAlarm",
-//  "success": displayAlarm});
-//}
 
-// Call a function repetatively with 2 Second interval
 setInterval(function() {
-        getData();
-        getWiFi();
+    getData();
+    getWiFi();
 }, 2000);
 
 function getData() {

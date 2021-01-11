@@ -20,7 +20,7 @@
     Features:
     - snooze and repeat alarm
     - RTTTL tunes
-    - display is completely off at time, comes on if any button is pressed
+    - display is completely off at night, and comes on if any button is pressed
 
     Features planned:
     - set and cancel alarm time via buttons
@@ -30,6 +30,28 @@
     
 
 // TODO:
+// * use ezt namespace
+// * Use NVS instead of EEPROM?
+//    - and/or use EZTime's cache
+// * display sometimes hunts -- depends on light level -- do running average?
+// * debounce buttons -- just one pause at a time:
+//   else it does this if l button is held:
+/*
+22:32:00.022 -> cFA: start ringing for alarm 22:32
+22:32:00.055 -> starting alarm tune
+
+22:32:09.897 -> starting alarm tune
+
+22:32:16.615 -> cFA: ringing -> snooze no. 1 (lButton)
+22:32:16.615 -> stopped playing
+
+22:32:16.615 -> cFA: snoozing -> snooze no. 2 (lButton)
+22:32:16.648 -> cFA: snoozing -> snooze no. 3 (lButton)
+22:32:16.681 -> cFA: snoozing -> snooze no. 4 (lButton)
+22:32:16.681 -> cFA: snoozing -> snooze no. 5 (lButton)
+22:32:16.714 -> cFA: snoozing -> snooze no. 6 (lButton)
+22:32:16.748 -> cFA: snoozing -> snooze no. 7 (lButton)
+*/
 // * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
@@ -37,9 +59,7 @@
 // * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
 //   - need to combine https://bitbucket.org/teckel12/arduino-timer-free-tone/downloads/ with the non-blocking RTTTL
 //   - alarm to get louder gradually
-// * web page 
-//   - choose from list of tunes
-//   - choose NTP server, time zone, DST rule
+// * test RTTTL by playing it???  No -- give a link to a site to test it https://adamonsoon.github.io/rtttl-play/
 // NO
 // - use ezTime events to trigger alarm?
 // * store alarm time as minutes since midnight instead of hour/minute
@@ -61,6 +81,9 @@
 // * snooze
 // * repeat e.g. alarm of after 5 minutes, then on again at 10 minutes, etc.
 // * snooze/pause times and counts in config and webpage
+// * web page 
+//   - choose from list of tunes
+//   - choose NTP server, time zone, DST rule
 
 //Included with ESP8266 Arduino Core
 #include <ESP8266WiFi.h>
@@ -104,9 +127,7 @@
 // Config -- stored in EEPROM
 #include "config.h"
 
-// Extra bits of code
-#include "secret.h"
-#include "pitches.h"
+// Letters as display segments
 #include "displayConf.h"
 
 // Declare 'webpage': 
@@ -189,7 +210,7 @@ static int alarmSnoozeCount;
 static const int alarmSnoozeMax = 3;
 static const long unsigned alarmSnoozeTime = 60 * 1000;  // ms
  
-const char *alarmTune = "Futurama:d=8,o=5,b=112:e,4e,4e,a,4a,4d,4d,e,4e,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,4e,4e,a,4a,4d,4d,e,g,f#,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,p,16e,16e,e,d#,d,d,c#,c#,2p";
+//const char *alarmTune = "Futurama:d=8,o=5,b=112:e,4e,4e,a,4a,4d,4d,e,4e,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,4e,4e,a,4a,4d,4d,e,g,f#,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,p,16e,16e,e,d#,d,d,c#,c#,2p";
 
 // converts the dBm to a range between 0 and 100%
 static int getWifiQuality() {
@@ -262,6 +283,10 @@ void handleSetAlarm() {
             newConfig.alarmDay[dy].set = alarmSet;
         } else if (server.argName(i) == "volume") {
             newConfig.volume = constrain(server.arg(i).toInt(), 10, 100);
+        } else if (server.argName(i) == "melody") {
+            strlcpy(newConfig.melody, server.arg(i).substring(0, MELODY_MAX-1).c_str(), MELODY_MAX);
+        } else if (server.argName(i) == "tz") {
+            strlcpy(newConfig.tz, server.arg(i).substring(0, MELODY_MAX-1).c_str(), TZ_MAX);
         }
     }
 
@@ -307,10 +332,11 @@ void handleGetAlarm() {
     //JsonObject& json = jsonBuffer.createObject();
     //JsonArray& dayArray = jsonBuffer.createArray();
 
-    DynamicJsonDocument json(768);
+    DynamicJsonDocument json(2000);
 
-    //json["alarmTune"] = alarmInfo.alarmTune;
     json["volume"] = config.volume;
+    json["melody"] = String(config.melody);
+    json["tz"] = String(config.tz);
 
     JsonArray days = json.createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
@@ -572,8 +598,8 @@ void setup() {
     Serial.begin(115200);
 
     //Onboard LED port Direction output
-    pinMode(LED_PIN,OUTPUT); 
-    digitalWrite(LED_PIN,HIGH); //LED OFF
+    pinMode(LED_PIN, OUTPUT); 
+    digitalWrite(LED_PIN, HIGH); //LED OFF
 
     display.setBrightness(2);
     display.setSegments(SEG_BOOT);
@@ -591,14 +617,11 @@ void setup() {
 
     WiFiManager wifiManager;
     wifiManager.setAPCallback(configModeCallback);
-    wifiManager.autoConnect("AlarmClock");  // , "password");
-
-    Serial.println("");
-    Serial.print("WiFi Connected");
-    Serial.println("");
-    Serial.print("IP address: ");
-
+    wifiManager.autoConnect("AlarmClock");  // could check boolean rc from this
     IPAddress ipAddress = WiFi.localIP();
+
+    Serial.println("\nWiFi Connected");
+    Serial.print("IP address: ");
     Serial.println(ipAddress);
 
     display.showNumberDec(ipAddress[3], false);
@@ -626,7 +649,7 @@ void setup() {
     setServer(String("uk.pool.ntp.org"));
 
     Serial.println("\nUTC: " + UTC.dateTime());
-    TZ.setLocation(F(MYTIMEZONE));
+    TZ.setLocation(config.tz);
     Serial.print("Local: " + TZ.dateTime());
 
     timers::setup();
@@ -655,11 +678,11 @@ void loop() {
             rtttl::play();	// keep playing stuff
         } else {
             PRINTLN("starting alarm tune");
-            rtttl::begin(BUZZER_PIN, alarmTune);
+            rtttl::begin(BUZZER_PIN, config.melody);
         }
     } else {
         if (rtttl::isPlaying()) {
-            rtttl::stop();	// stop the alarm
+            rtttl::stop();
             PRINTLN("stopped playing");
         }
     }
