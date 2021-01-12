@@ -63,7 +63,7 @@
 22:32:16.714 -> cFA: snoozing -> snooze no. 6 (lButton)
 22:32:16.748 -> cFA: snoozing -> snooze no. 7 (lButton)
 */
-// * GPL
+// * maybe use bool ezt's secondChanged() to display the time less often
 // * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
@@ -80,7 +80,6 @@
 // * off completely if ldr < min -- not just on level
 // * colon if seconds % 2
 // * get rid if mdNS stuff
-// * can't get dots to work -- try a different TM1637 library? -- nothing seems to help
 // * bug? 
 //   - rebooted when button pressed for too long to see time at night
 //   - rebooted at alarm time
@@ -96,8 +95,8 @@
 // * web page 
 //   - choose from list of tunes
 //   - choose NTP server, time zone, DST rule
+// * GPL
 
-//Included with ESP8266 Arduino Core
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -259,7 +258,7 @@ void handleADC() {
 
 void handleWiFi() {
     int rssi = getWifiQuality();
-    String rssiValue = String(rssi);    //sprintf("%d%  (Compiled %s)", rssi, dateTime(compileTime() - (TZ.getOffset() * 60)).c_str());
+    String rssiValue = String(rssi);    //sprintf("%d%  (Compiled %s)", rssi, TZ.dateTime(compileTime() - (TZ.getOffset() * 60)).c_str());
     server.send(200, "text/plain", rssiValue);
 }
 
@@ -424,10 +423,10 @@ static void setButtonStates (void) {
 alarmDetails_t nextAlarm () {
     alarmDetails_t next;
     // Get 'now' as day of week, hour, minute
-    int wd = weekday()-1;    // 0 = Sunday  from ezTime
-    int hr = hour();
-    int mn = minute();
-    if (second() > 10) {
+    int wd = TZ.weekday()-1;    // 0 = Sunday  (ezTime has 1=Sunday)
+    int hr = TZ.hour();
+    int mn = TZ.minute();
+    if (TZ.second() > 10) {
         // Hack so that alarms only get done once  -- may need tuning, especially if this isn't called every loop FIXME
         mn += 1;    // Don't need to adjust if mn>59
     }
@@ -481,8 +480,8 @@ static void adjustBrightness() {
 }
 
 static void checkForAlarm () {
-    int hr = hour();
-    int mn = minute();
+    int hr = TZ.hour();
+    int mn = TZ.minute();
     long unsigned now = millis();
     //PRINTF("cFA: alarmState is %d   time is %02d:%02d\n", alarmState, hr, mn);
     switch (alarmState) {
@@ -577,9 +576,6 @@ static void checkForAlarm () {
             break;
         }
     }
-        
-    //TODO if now off, silence it immediately
-    //PRINTLN("cFA: need to silence tune now");  only if ringing
     
 }
 
@@ -600,7 +596,7 @@ static void displayTime (void) {
     int timeDecimal = timeHour * 100 + timeMinutes;
     //PRINTF("dT: timeString=%s h=%d m=%d\n", timeString.c_str(), timeHour, timeMinutes);
     // Pulse colon every second, but keep it on if the alarm is set
-    bool showColon = (second() % 2) || nextAlarm().set;
+    bool showColon = (TZ.second() % 2) || nextAlarm().set;
     uint8_t dots = showColon << 6;
     display.showNumberDecEx(timeDecimal, dots, false);
     
