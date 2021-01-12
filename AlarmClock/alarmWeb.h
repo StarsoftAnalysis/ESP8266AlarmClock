@@ -43,12 +43,12 @@ const char webpage[] PROGMEM = R"=====(
         <a class="navbar-brand" href="#"><i class="far fa-clock"></i> Alarm Clock</a>
     </div>
 </nav>
-<main role="main" class="flex-shrink-0 pb-4">
+<main role="main" class="flex-shrink-0">
   <div class="container pt-5">
-    <div class="form-row pt-3">
-      <div class="col-auto">
-        <h1>Set the alarm</h1>
-        <div class=form-group>
+    <div class=form-group>
+      <div class="form-row">
+        <div class="col-auto">
+          <h2 class="mt-3">Set the alarm</h2>
           <table class=table-sm>
             <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
             <tr><td>Sunday</td><td><input id="time0" type="time" class="form-control" aria-label="Alarm time Sunday"></td><td><input id="set0" class="form-control" type="checkbox" aria-label="Alarm set Sunday"</td></tr> 
@@ -59,11 +59,19 @@ const char webpage[] PROGMEM = R"=====(
             <tr><td>Friday</td><td><input id="time5" type="time" class="form-control" aria-label="Alarm time Friday"></td><td><input id="set5" class="form-control" type="checkbox" aria-label="Alarm set Friday"</td></tr> 
             <tr><td>Saturday</td><td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td><td><input id="set6" class="form-control" type="checkbox" aria-label="Alarm set Saturday"</td></tr> 
           </table>
-          <label for=melody class=h3>RTTTL Melody</label>
-          <textarea id=melody class="form-control" rows="5" xcols="60" maxlength=1000></textarea>
-          <label for=tz class=h3>Timezone</label>
+        </div>
+        <div class="col-auto">
+          <label for=melody class="h3 mt-3">RTTTL Melody</label>
+          <textarea id=melody class="form-control" rows="5" cols="60" maxlength=500></textarea>
+        </div>
+        <div class="col-auto">
+          <label for=tz class="h3 mt-3">Timezone</label>
           <input type=text id=tz class="form-control" maxlength=32>
-          <button class="btn btn-primary" type=button id=sendAlarm onclick='saveAlarm()'>Save</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="col-auto">
+          <button class="btn btn-primary mt-3" type=button id=sendAlarm onclick='saveAlarm()'>Save</button>
         </div>
       </div>
     </div>
@@ -74,9 +82,9 @@ const char webpage[] PROGMEM = R"=====(
     <div class="container">
       <div class="row">
         <div class="col-sm">
-        <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.2cd<br>
-        <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>% 
-        <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
+            <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.2cd<br>
+            <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>%<br>
+            <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
         </div>
         <div class="col-sm text-left text-sm-right">
             <i class="fab fa-github"></i> <a href="https://github.com/starsoftanalysis/arduino-alarm-clock/" target="_blank">GitHub</a><br>

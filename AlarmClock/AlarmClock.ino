@@ -38,36 +38,15 @@
     - likewise for current time (in case internet is not available)
 
 ****************************************************************/
-    
 
 // TODO:
-// * use ezt namespace
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
 // * display sometimes hunts -- depends on light level -- do running average?
-// * debounce buttons -- just one pause at a time:
-//   else it does this if l button is held:
-/*
-22:32:00.022 -> cFA: start ringing for alarm 22:32
-22:32:00.055 -> starting alarm tune
-
-22:32:09.897 -> starting alarm tune
-
-22:32:16.615 -> cFA: ringing -> snooze no. 1 (lButton)
-22:32:16.615 -> stopped playing
-
-22:32:16.615 -> cFA: snoozing -> snooze no. 2 (lButton)
-22:32:16.648 -> cFA: snoozing -> snooze no. 3 (lButton)
-22:32:16.681 -> cFA: snoozing -> snooze no. 4 (lButton)
-22:32:16.681 -> cFA: snoozing -> snooze no. 5 (lButton)
-22:32:16.714 -> cFA: snoozing -> snooze no. 6 (lButton)
-22:32:16.748 -> cFA: snoozing -> snooze no. 7 (lButton)
-*/
 // * maybe use bool ezt's secondChanged() to display the time less often
 // * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
-// * check summer time etc (i.e. NTPClient vs Timezone) - use UK. function, not direct from ntpclient
 // * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
 //   - need to combine https://bitbucket.org/teckel12/arduino-timer-free-tone/downloads/ with the non-blocking RTTTL
 //   - alarm to get louder gradually
@@ -96,13 +75,12 @@
 //   - choose from list of tunes
 //   - choose NTP server, time zone, DST rule
 // * GPL
+// * debounce buttons -- just one pause at a time:
+// * use ezt namespace
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-//#include <ESP8266mDNS.h>
-//#include <DNSServer.h>
-//#include "FS.h"
 
 #include <ezTime.h>
 // Library used for getting the time and adjusting for DST
@@ -115,10 +93,7 @@
 // https://github.com/avishorp/TM1637
 
 #include "ArduinoJson.h"
-// Local v6
-// Library used for parsing & saving Json to config
-// NOTE: There is a breaking change in the 6.x.x version,
-// install the 5.x.x version instead
+// v6
 // Search for "Arduino Json" in the Arduino Library manager
 // https://github.com/bblanchon/ArduinoJson
 
@@ -144,18 +119,6 @@
 // Declare 'webpage': 
 #include "alarmWeb.h"
 
-// --- TimeZone (Change me!) ---
-
-// You should be able to use the country code for
-// countries that only span one timezone, but I'm having
-// issues with it:
-// https://github.com/ropg/ezTime/issues/47
-//#define MYTIMEZONE "ie"
-
-// Or to set a specific timezone, use this list:
-// https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-#define MYTIMEZONE "Europe/London"
-
 // -----------------------------
 
 // --- Pin Configuration ---
@@ -175,27 +138,8 @@ ESP8266WebServer server(80);
 
 static Timezone TZ;
 
-//static int alarmHour = 0;
-//static int alarmMinute = 0;
-//static bool alarmActive = false;
-//static bool alarmHandled = false;
-//static bool buttonPressed = false;
-
 #define KEEP_LIGHT_ON_TIME 5000
 static bool keepingLightOn = false;
-
-/* Now as config
-// here is all the alarm info
-typedef struct {
-    byte alarmHour;
-    byte alarmMinute;
-    bool alarmSet;
-} alarmDetails;
-struct {
-    int volume;	// 1-100% (really only works in 10% increments; 10-100)   FIXME really doesn't work at all!
-    alarmDetails alarmDay[7];	// one for each day, 0=Sun ... 6=Sat
-} alarmInfo;
-*/
 
 struct {
     bool lButtonPressed;    // left button
@@ -219,8 +163,6 @@ static int alarmSnoozeCount;
 static const int alarmSnoozeMax = 3;
 static const long unsigned alarmSnoozeTime = 60 * 1000;  // ms
  
-//const char *alarmTune = "Futurama:d=8,o=5,b=112:e,4e,4e,a,4a,4d,4d,e,4e,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,4e,4e,a,4a,4d,4d,e,g,f#,4e,e,4a,4g#,4d,d,f#,f#,4e,4e,e,4a,4g#,4b,16b,16b,g,g,f#,f#,p,16e,16e,e,d#,d,d,c#,c#,2p";
-
 // converts the dBm to a range between 0 and 100%
 static int getWifiQuality() {
     int32_t dbm = WiFi.RSSI();
@@ -304,31 +246,6 @@ void handleSetAlarm() {
     webActive=false;
 }
 
-
-/*
-void handleDeleteAlarm() {
-    Serial.println("Deleting Alarm");
-    alarmHour = 0;
-    alarmMinute = 0;
-    alarmActive = false;
-    storeConfig();
-    Serial.print("Alarm deleted");
-    server.send(200, "text/plain", "--:--");
-}
-*/
-
-/*
-void oldhandleGetAlarm() {
-    char alarmString[5];
-    if (alarmActive) {
-        sprintf(alarmString, "%02d:%02d", alarmHour, alarmMinute);
-    } else {
-        sprintf(alarmString, "--:--");
-    }
-    server.send(200, "text/plain", alarmString);
-}
-*/
-
 void handleGetAlarm() {
     // single threaded
     if (webActive) {
@@ -336,10 +253,6 @@ void handleGetAlarm() {
         return;
     }
     webActive = true;
-
-    //StaticJsonBuffer<2048> jsonBuffer;
-    //JsonObject& json = jsonBuffer.createObject();
-    //JsonArray& dayArray = jsonBuffer.createArray();
 
     DynamicJsonDocument json(2000);
 
@@ -350,15 +263,11 @@ void handleGetAlarm() {
     JsonArray days = json.createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
         JsonObject obj = days.createNestedObject();
-        //obj["alarmHour"] = config.alarmDay[i].hour;
-        //obj["alarmMinute"] = config.alarmDay[i].minute;
         char timeString[6];
         sprintf(timeString, "%02d:%02d", config.alarmDay[i].hour, config.alarmDay[i].minute);
         obj["alarmTime"] = timeString;
         obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
-        //days.add(obj);
     }
-    //json["alarmDay2"] = days;
 
     String alarmString;
     serializeJson(json, alarmString);
@@ -385,6 +294,7 @@ static void setButtonStatesWithDebouncing (void) {
     static long unsigned lButtonPressedTime = 0;
     static long unsigned rButtonPressedTime = 0;
     long unsigned now = millis();
+
     bool lButtonPressed = (digitalRead(LBUTTON_PIN) == LOW);
     bool rButtonPressed = (digitalRead(RBUTTON_PIN) == LOW);
 
@@ -461,37 +371,6 @@ alarmDetails_t nextAlarm () {
     //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.set, today.hour, today.minute, tomorrow.set, tomorrow.hour, tomorrow.minute, due); 
     return next;
 }
-
-/*
-// notes in the melody:
-static int melody[] = {
-    NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4, 0
-};
-
-// note durations: 4 = quarter note, 8 = eighth note, etc.:
-static int noteDurations[] = {
-    4, 8, 8, 4, 4, 4, 4, 4, 4
-};
-*/
-
-// FIXME non-blocking version of this, or use library
-/*
-static void soundAlarm() {
-    for (int thisNote = 0; thisNote < 8; thisNote++) {
-        // to calculate the note duration, take one second divided by the note type.
-        //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-        int noteDuration = 1000 / noteDurations[thisNote];
-        tone(BUZZER_PIN, melody[thisNote], noteDuration);
-
-        // to distinguish the notes, set a minimum time between them.
-        // the note's duration + 30% seems to work well:
-        int pauseBetweenNotes = noteDuration * 1.30;
-        delay(pauseBetweenNotes);
-        // stop the tone playing:
-        noTone(BUZZER_PIN);
-    }
-}
-*/
 
 static void adjustBrightness() {
     int sensorValue = analogRead(LDR_PIN);
@@ -728,24 +607,14 @@ void loop() {
         }
     }
 
-    //unsigned long now = millis();
     if (buttonState.lButtonLong) {
         display.setSegments(SEG_CONF);
         PRINTLN("Config mode -- would be here...");
         delay(1000);
     }
-    /*
-    } else if (digitalRead(LBUTTON_PIN) == LOW && digitalRead(RBUTTON_PIN) == LOW) {
-        int sensorValue = analogRead(LDR_PIN);
-        display.showNumberDec(sensorValue, false);
-    } else if (digitalRead(LBUTTON_PIN) == LOW) {
-        IPAddress ipAddress = WiFi.localIP();
-        display.showNumberDec(ipAddress[3], false);
-    } else {
-    */
-        displayTime();
-        checkForAlarm();
-    //}
+
+    displayTime();
+    checkForAlarm();
 
     server.handleClient();
 
