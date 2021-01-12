@@ -198,14 +198,12 @@ struct {
 */
 
 struct {
-    bool          lButtonPressed;    // left button
-    long unsigned lButtonPressedTime;
-    bool          lButtonLong;
-    bool          rButtonPressed;    // right button
-    long unsigned rButtonPressedTime;
-    bool          rButtonLong;
-    bool          aButtonPressed;    // any button
-    // TODO lButtonLongStart etc.
+    bool lButtonPressed;    // left button
+    bool lButtonLong;
+    bool rButtonPressed;    // right button
+    bool rButtonLong;
+    bool aButtonPressed;    // any button
+    bool bButtonPressed;    // both buttons
 } buttonState;
 #define LONG_BUTTON_PRESS_TIME 2000
 
@@ -376,47 +374,70 @@ void configModeCallback (WiFiManager *myWiFiManager) {
     display.setSegments(SEG_WIFI);
 }
 
-static void setButtonStates (void) {
+static void setButtonStatesWithDebouncing (void) {
+    // Check for button presses, with 'debouncing' so that a single press is only detected for one loop.
+    // 'before' means in a previous loop.
+    // This function must be called early in the loop, before other functions that use buttonState.
     static bool lButtonPressedBefore = false;
     static bool rButtonPressedBefore = false;
+    static bool lButtonLongPressedBefore = false;
+    static bool rButtonLongPressedBefore = false;
+    static long unsigned lButtonPressedTime = 0;
+    static long unsigned rButtonPressedTime = 0;
     long unsigned now = millis();
-    buttonState.lButtonPressed = (digitalRead(LBUTTON_PIN) == LOW);
-    buttonState.rButtonPressed = (digitalRead(RBUTTON_PIN) == LOW);
-    buttonState.aButtonPressed = (buttonState.lButtonPressed || buttonState.rButtonPressed);
+    bool lButtonPressed = (digitalRead(LBUTTON_PIN) == LOW);
+    bool rButtonPressed = (digitalRead(RBUTTON_PIN) == LOW);
+
+    // Reset all buttonState buttons first.
+    buttonState.lButtonPressed = false;
+    buttonState.rButtonPressed = false;
     buttonState.lButtonLong = false;
     buttonState.rButtonLong = false;
-    if (buttonState.lButtonPressed) {
+
+    // Consider combinations for button pressed now and before:
+    //   Neither: do nothing
+    //   Before, not now: set both flags false, and flag in struct false
+    //   Not before, but now: set flag in struct true, 
+    //   Before and now: same 'event': set flag in struct false so that other functions won't act on it again
+    // At end, set before = now
+    if (lButtonPressed) {
         if (lButtonPressedBefore) {
-            if (now - buttonState.lButtonPressedTime > LONG_BUTTON_PRESS_TIME) {
-                // FIXME need to know when long press finishes?  or rather when long press has been acknowledged/dealt with
-                // Could reset xButtonLong every loop, so that it's only true once for other functions called from the loop that want to test it, rather than calling other functions from here.
-                if (!buttonState.lButtonLong) {
-                    Serial.println("sBS: lButtonLong becomes true");
-                }
-                buttonState.lButtonLong = true;
+            // Not a new press
+            buttonState.lButtonPressed = false;
+            if (now - lButtonPressedTime > LONG_BUTTON_PRESS_TIME) {
+                // button has been pressed for long enough to count as a long press
+                buttonState.lButtonLong = !lButtonLongPressedBefore; // true;
+                lButtonLongPressedBefore = true;
             }
         } else {
-            buttonState.lButtonPressedTime = now;
+            buttonState.lButtonPressed = true;
+            // Start timer for a long press
+            lButtonPressedTime = now;
+            lButtonLongPressedBefore = false;
         }
-    } else {
-        buttonState.lButtonLong = false;
     }
-    lButtonPressedBefore = buttonState.lButtonPressed;
-    if (buttonState.rButtonPressed) {
+    lButtonPressedBefore = lButtonPressed;
+
+    if (rButtonPressed) {
         if (rButtonPressedBefore) {
-            if (now - buttonState.rButtonPressedTime > LONG_BUTTON_PRESS_TIME) {
-                if (!buttonState.rButtonLong) {
-                    Serial.println("sBS: rButtonLong becomes true");
-                }
-                buttonState.rButtonLong = true;
+            // Not a new press
+            buttonState.rButtonPressed = false;
+            if (now - rButtonPressedTime > LONG_BUTTON_PRESS_TIME) {
+                // button has been pressed for long enough to count as a long press
+                buttonState.rButtonLong = !rButtonLongPressedBefore; // true;
+                rButtonLongPressedBefore = true;
             }
         } else {
-            buttonState.rButtonPressedTime = now;
+            buttonState.rButtonPressed = true;
+            // Start timer for a long press
+            rButtonPressedTime = now;
+            rButtonLongPressedBefore = false;
         }
-    } else {
-        buttonState.rButtonLong = false;
     }
-    rButtonPressedBefore = buttonState.rButtonPressed;
+    rButtonPressedBefore = rButtonPressed;
+
+    buttonState.aButtonPressed = (buttonState.lButtonPressed || buttonState.rButtonPressed);
+    buttonState.bButtonPressed = (buttonState.lButtonPressed && buttonState.rButtonPressed);
 }
 
 // Get details of next alarm (whether it's set or not)
@@ -670,7 +691,21 @@ void loop() {
 
     ezt::events();
 
-    setButtonStates();
+    setButtonStatesWithDebouncing();
+    // debug button states:
+    if (buttonState.lButtonPressed) {
+        PRINTLN("l button pressed");
+    }
+    if (buttonState.rButtonPressed) {
+        PRINTLN("r button pressed");
+    }
+    if (buttonState.lButtonLong) {
+        PRINTLN("l button long");
+    }
+    if (buttonState.rButtonLong) {
+        PRINTLN("r button long");
+    }
+
     adjustBrightness();
 
     if (buttonState.aButtonPressed) {
@@ -696,9 +731,8 @@ void loop() {
     //unsigned long now = millis();
     if (buttonState.lButtonLong) {
         display.setSegments(SEG_CONF);
-        delay(1000);
         PRINTLN("Config mode -- would be here...");
-        // perhaps set buttons off so that not acted on again this loop FIXME
+        delay(1000);
     }
     /*
     } else if (digitalRead(LBUTTON_PIN) == LOW && digitalRead(RBUTTON_PIN) == LOW) {

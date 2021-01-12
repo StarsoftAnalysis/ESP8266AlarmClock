@@ -49,7 +49,7 @@ const char webpage[] PROGMEM = R"=====(
       <div class="col-auto">
         <h1>Set the alarm</h1>
         <div class=form-group>
-          <table>
+          <table class=table-sm>
             <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
             <tr><td>Sunday</td><td><input id="time0" type="time" class="form-control" aria-label="Alarm time Sunday"></td><td><input id="set0" class="form-control" type="checkbox" aria-label="Alarm set Sunday"</td></tr> 
             <tr><td>Monday</td><td><input id="time1" type="time" class="form-control" aria-label="Alarm time Monday"></td><td><input id="set1" class="form-control" type="checkbox" aria-label="Alarm set Monday"</td></tr> 
@@ -59,9 +59,9 @@ const char webpage[] PROGMEM = R"=====(
             <tr><td>Friday</td><td><input id="time5" type="time" class="form-control" aria-label="Alarm time Friday"></td><td><input id="set5" class="form-control" type="checkbox" aria-label="Alarm set Friday"</td></tr> 
             <tr><td>Saturday</td><td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td><td><input id="set6" class="form-control" type="checkbox" aria-label="Alarm set Saturday"</td></tr> 
           </table>
-          <label for=melody><h3>RTTTL Melody</h3></label>
+          <label for=melody class=h3>RTTTL Melody</label>
           <textarea id=melody class="form-control" rows="5" xcols="60" maxlength=1000></textarea>
-          <label for=tz><h3>Timezone</h3></label>
+          <label for=tz class=h3>Timezone</label>
           <input type=text id=tz class="form-control" maxlength=32>
           <button class="btn btn-primary" type=button id=sendAlarm onclick='saveAlarm()'>Save</button>
         </div>
