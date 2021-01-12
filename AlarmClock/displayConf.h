@@ -1,8 +1,30 @@
+/*
+
+    Copyright 2021 Chris Dennis
+
+    This file is part of AlarmClock.
+
+    AlarmClock is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AlarmClock is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
+
+*/
+// Segments:  
 //   A 
 // F   B
 //   G
 // E   C
 //   D   DP
+// Note that the decimal point (DP) is only available on some displays.
 
 const uint8_t LETTER_A = SEG_A | SEG_B | SEG_C | SEG_E | SEG_F | SEG_G;
 const uint8_t LETTER_b = SEG_C | SEG_D | SEG_E | SEG_F | SEG_G;

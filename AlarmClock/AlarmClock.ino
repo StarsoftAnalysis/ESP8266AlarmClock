@@ -1,23 +1,34 @@
 /*******************************************************************
-    BLough Alarm Clock
+    Alarm Clock
     An Alarm clock that gets its time from the internet
+    for use with Brian Lough's alarm clock kit at https://www.tindie.com/products/15402/
+    (or similar ESP8266-based circuit)
+
+    This version by Chris Dennis
+    Copyright 2021 Chris Dennis
+
+    Modified from Brian Lough's code at https://github.com/witnessmenow/arduino-alarm-clock,
+    with additional ideas and code from James Brown's version at https://github.com/jbrown123/arduino-alarm-clock 
+
+    ---
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AlarmClock is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
+    ---
 
     Features:
     - Web interface for setting the alarm
     - Captive portal for setting WiFi Details
     - Automatically adjust for DST
-
-    By Brian Lough
-
-    For use with Brian Lough's alarm clock kit at https://www.tindie.com/products/15402/
-    (or similar ESP8266-based circuit)
-    
-    This version by Chris Dennis
-
-    Modified from Brian Lough's code at https://github.com/witnessmenow/arduino-alarm-clock,
-    with additional ideas and code from James Brown's version at https://github.com/jbrown123/arduino-alarm-clock 
-
-    Features:
     - snooze and repeat alarm
     - RTTTL tunes
     - display is completely off at night, and comes on if any button is pressed
@@ -52,6 +63,7 @@
 22:32:16.714 -> cFA: snoozing -> snooze no. 6 (lButton)
 22:32:16.748 -> cFA: snoozing -> snooze no. 7 (lButton)
 */
+// * GPL
 // * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)

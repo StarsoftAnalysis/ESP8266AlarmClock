@@ -6,6 +6,23 @@ alarm clock kit, which is available from [Tindie](https://www.tindie.com/product
 This is StarSoftAnalysis's version of the software, based on [Brian](https://github.com/witnessmenow/arduino-alarm-clock)'s, and incorporating
 features from [James Brown's fork](https://github.com/jbrown123/arduino-alarm-clock).
 
+    Copyright 2021 Chris Dennis
+
+    This file is part of AlarmClock.
+
+    AlarmClock is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AlarmClock is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
+
 ## Features
 
 * Gets the current time from the internet using the network time protocol, automatically adjusting for daylight savings in the local timezone.
