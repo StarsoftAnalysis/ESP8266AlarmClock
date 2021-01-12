@@ -651,14 +651,13 @@ void setup() {
     Serial.println("HTTP Server Started");
 
     // EZ Time
-    //setDebug(INFO);
-    //waitForSync();
-    setInterval(60);
-    setServer(String("uk.pool.ntp.org"));
-
+    //ezt::setDebug(INFO);
+    ezt::setInterval(60);
+    ezt::setServer(String("uk.pool.ntp.org"));
+    ezt::waitForSync();
     Serial.println("\nUTC: " + UTC.dateTime());
     TZ.setLocation(config.tz);
-    Serial.print("Local: " + TZ.dateTime());
+    Serial.println("Local: " + TZ.dateTime());
 
     timers::setup();
 
@@ -669,14 +668,13 @@ void loop() {
 
     timers::loop();
 
-    // ezTime events
-    events();
+    ezt::events();
 
     setButtonStates();
     adjustBrightness();
 
-    // Light the display for a while even if it's dark
     if (buttonState.aButtonPressed) {
+        // Light the display for a while even if it's dark
         keepingLightOn = true;
         timers::setTimer(TIMER_KEEP_LIGHT_ON, KEEP_LIGHT_ON_TIME, dontKeepLightOn); 
     }
