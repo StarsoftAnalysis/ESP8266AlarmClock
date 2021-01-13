@@ -40,8 +40,15 @@
 ****************************************************************/
 
 // TODO:
+// * change time zone when it's changed on the gui
+// * OTA updates
+// * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
+// * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
+// * more aria labels in html
+// * use #defines to set e.g. SNOOZE = LBUTTON etc. for ease of customisation
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
+// * async web server?? or more consistent use of webActive??
 // * display sometimes hunts -- depends on light level -- do running average?
 // * maybe use bool ezt's secondChanged() to display the time less often
 // * button functions --  'config' more
@@ -50,6 +57,7 @@
 // * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
 //   - need to combine https://bitbucket.org/teckel12/arduino-timer-free-tone/downloads/ with the non-blocking RTTTL
 //   - alarm to get louder gradually
+// * HTTPS? -- see http://www.iotsharing.com/2017/08/how-to-use-https-in-arduino-esp32.html
 // * test RTTTL by playing it???  No -- give a link to a site to test it https://adamonsoon.github.io/rtttl-play/
 // NO
 // - use ezTime events to trigger alarm?
@@ -63,7 +71,7 @@
 //   - rebooted when button pressed for too long to see time at night
 //   - rebooted at alarm time
 // * light on when button pressed -- keep it on for e.g. 5 seconds
-// * EEPROM instead of SPIFFS
+// * EEPROM instead of SPIFFS for config
 // * JSON v6
 // * home-grown timers instead of pseudothreads
 // * need to not re-trigger alarm if turned off or timed out within the minute
@@ -212,10 +220,9 @@ void handleSetAlarm() {
     webActive = true;
     config_t newConfig;
 
-    Serial.println("hSA: args: ");
+    //Serial.println("hSA: args: ");
     for (int i = 0; i < server.args(); i++) {
-        //if (server.argName(i) == "alarm") 
-        Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
+        //Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
         if (server.argName(i).substring(0,9) == "alarmTime") {
             //Serial.printf("\t\tdaystring = %s\n", server.argName(i).substring(9).c_str());
             int dy = constrain(server.argName(i).substring(9).toInt(), 0, 6);  // returns 0 on error!
@@ -223,7 +230,7 @@ void handleSetAlarm() {
             int indexOfColon = alarmTime.indexOf(":");
             int alarmHour = constrain(alarmTime.substring(0, indexOfColon).toInt(), 0, 23);
             int alarmMinute = constrain(alarmTime.substring(indexOfColon + 1).toInt(), 0, 59);
-            Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
+            //Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
             newConfig.alarmDay[dy].hour = alarmHour;
             newConfig.alarmDay[dy].minute = alarmMinute;
         } else if (server.argName(i).substring(0,8) == "alarmSet") {

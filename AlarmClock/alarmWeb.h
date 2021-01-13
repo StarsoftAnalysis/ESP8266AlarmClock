@@ -39,11 +39,11 @@ const char webpage[] PROGMEM = R"=====(
 
 <body class="d-flex flex-column h-100">
 <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="#"><i class="far fa-clock"></i> Alarm Clock</a>
-    </div>
+  <div class="container">
+      <h1 class="text-white mb-0"><i class="far fa-clock"></i> Alarm Clock</h1>
+  </div>
 </nav>
-<main role="main" class="flex-shrink-0">
+<main role="main" class="whyflex-shrink-0">
   <div class="container pt-5">
     <div class=form-group>
       <div class="form-row">
@@ -82,7 +82,7 @@ const char webpage[] PROGMEM = R"=====(
     <div class="container">
       <div class="row">
         <div class="col-sm">
-            <i class='fas fa-fw fa-code-branch'></i> Version: 1.0.2cd<br>
+            <i class='fas fa-fw fa-code-branch'></i> Version: 0.1.1<br>
             <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>%<br>
             <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
         </div>
