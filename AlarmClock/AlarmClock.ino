@@ -40,6 +40,9 @@
 ****************************************************************/
 
 // TODO:
+// * 0:03 displays as '  : 3' !!
+// * only check for alarm once a minute (will avoid the nasty hack in nextAlarm())
+// OR call minuteChanged in nextAlarm and cache its answer
 // * change time zone when it's changed on the gui
 // * OTA updates
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
@@ -160,7 +163,7 @@ struct {
 #define LONG_BUTTON_PRESS_TIME 2000
 
 // Alarm state etc.
-enum class alarmStateEnum { Off, Ringing, Snoozed, Paused };
+enum class alarmStateEnum { Off, Ringing, Snoozed, Paused, Stopped };
 static alarmStateEnum alarmState = alarmStateEnum::Off;
 static long unsigned alarmStateStart;
 static const long unsigned alarmRingTime = 60 * 1000;  // ms
@@ -290,7 +293,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
     display.setSegments(SEG_WIFI);
 }
 
-static void setButtonStatesWithDebouncing (void) {
+static void setButtonStates (void) {
     // Check for button presses, with 'debouncing' so that a single press is only detected for one loop.
     // 'before' means in a previous loop.
     // This function must be called early in the loop, before other functions that use buttonState.
@@ -357,25 +360,32 @@ static void setButtonStatesWithDebouncing (void) {
     buttonState.bButtonPressed = (buttonState.lButtonPressed && buttonState.rButtonPressed);
 }
 
-// Get details of next alarm (whether it's set or not)
+// Get details of next alarm (whether it's set or not),
+// 
 alarmDetails_t nextAlarm () {
-    alarmDetails_t next;
-    // Get 'now' as day of week, hour, minute
-    int wd = TZ.weekday()-1;    // 0 = Sunday  (ezTime has 1=Sunday)
-    int hr = TZ.hour();
-    int mn = TZ.minute();
-    if (TZ.second() > 10) {
-        // Hack so that alarms only get done once  -- may need tuning, especially if this isn't called every loop FIXME
-        mn += 1;    // Don't need to adjust if mn>59
-    }
-    alarmDetails_t today = config.alarmDay[wd];
-    alarmDetails_t tomorrow = config.alarmDay[(wd+1) % 7];
-    if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
-        next = today;
-    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
-        next = tomorrow;
-    }
-    //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.set, today.hour, today.minute, tomorrow.set, tomorrow.hour, tomorrow.minute, due); 
+    static alarmDetails_t next = {0, 0, false};
+    //static int lastMinute = 0;
+    //int thisMinute = TZ.minute()
+    //if (thisMinute != lastMinute) {
+        // Get 'now' as day of week, hour, minute
+        int wd = TZ.weekday()-1;    // 0 = Sunday  (ezTime has 1=Sunday)
+        int hr = TZ.hour();
+        int mn = TZ.minute();
+    //    if (TZ.second() > 1) { //10) {
+    //        // FIXME maybe a first-time flag instead -- would need to reset the flag every minute?  or do it in checkForAlarm?
+    //        // Hack so that alarms only get done once  -- may need tuning, especially if this isn't called every loop FIXME
+    //        mn += 1;    // Don't need to adjust if mn>59
+    //    }
+        alarmDetails_t today = config.alarmDay[wd];
+        alarmDetails_t tomorrow = config.alarmDay[(wd+1) % 7];
+        if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
+            next = today;
+        } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
+            next = tomorrow;
+        }
+        //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.set, today.hour, today.minute, tomorrow.set, tomorrow.hour, tomorrow.minute, due); 
+    //    lastMinute = thisMinute;
+    //}
     return next;
 }
 
@@ -390,6 +400,7 @@ static void checkForAlarm () {
     int hr = TZ.hour();
     int mn = TZ.minute();
     long unsigned now = millis();
+    static int stopMinute = -1; // The minute when the alarm was stopped
     //PRINTF("cFA: alarmState is %d   time is %02d:%02d\n", alarmState, hr, mn);
     switch (alarmState) {
         case alarmStateEnum::Off: {
@@ -415,16 +426,18 @@ static void checkForAlarm () {
                     alarmSnoozeCount = 1;
                     PRINTF("cFA: ringing -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {   // TODO better choices of long/short/both button presses
-                    // fully off
-                    alarmState = alarmStateEnum::Off;
+                    // stop
+                    alarmState = alarmStateEnum::Stopped;
+                    stopMinute = TZ.minute();
                     alarmStateStart = now;  // not needed
-                    PRINTLN("cFA: ringing -> off (rButton)");
+                    PRINTLN("cFA: ringing -> stopped (rButton)");
                 }
             } else if (now - alarmStateStart > alarmRingTime) {
                 if (alarmRepeatCount >= alarmRepeatMax) {
-                    // alarm ignored for long enough -- off
-                    alarmState = alarmStateEnum::Off;
-                    PRINTLN("cFA: ringing -> off (timeout)");
+                    // alarm ignored for long enough -- stop
+                    alarmState = alarmStateEnum::Stopped;
+                    stopMinute = TZ.minute();
+                    PRINTLN("cFA: ringing -> stopped (timeout)");
                 } else {
                     // pause
                     alarmState= alarmStateEnum::Paused;
@@ -442,15 +455,17 @@ static void checkForAlarm () {
                     alarmSnoozeCount += 1;
                     PRINTF("cFA: snoozing -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {
-                    // fully off
-                    alarmState = alarmStateEnum::Off;
-                    PRINTLN("cFA: snoozing -> off (rButton)");
+                    // stop
+                    alarmState = alarmStateEnum::Stopped;
+                    stopMinute = TZ.minute();
+                    PRINTLN("cFA: snoozing -> stopped (rButton)");
                 }
             } else if (now - alarmStateStart > alarmSnoozeTime) {
                 if (alarmSnoozeCount >= alarmSnoozeMax) {
-                    // alarm ignored for long enough -- off
-                    alarmState = alarmStateEnum::Off;
-                    PRINTLN("cFA: snoozing -> off (enough snoozes))");
+                    // alarm ignored for long enough -- stop
+                    alarmState = alarmStateEnum::Stopped;
+                    stopMinute = TZ.minute();
+                    PRINTLN("cFA: snoozing stopped (enough snoozes))");
                 } else {
                     // back to ringing (but don't reset the counts)
                     alarmState = alarmStateEnum::Ringing;
@@ -469,9 +484,10 @@ static void checkForAlarm () {
                     alarmSnoozeCount += 1;
                     PRINTF("cFA: paused -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {
-                    // fully off
-                    alarmState = alarmStateEnum::Off;
-                    PRINTLN("cFA: paused -> off (rButton)");
+                    // stop
+                    alarmState = alarmStateEnum::Stopped;
+                    stopMinute = TZ.minute();
+                    PRINTLN("cFA: paused -> stopped (rButton)");
                 }
             } else if (now - alarmStateStart > alarmPauseTime) {
                 // back to ringing 
@@ -479,6 +495,14 @@ static void checkForAlarm () {
                 alarmStateStart = now;  
                 alarmRepeatCount += 1;
                 PRINTF("cFA: paused -> ringing, repeat %d\n", alarmRepeatCount);
+            }
+            break;
+        }
+        case alarmStateEnum::Stopped: {
+            // Go to Off once the minute has changed
+            if (TZ.minute() != stopMinute) {
+                alarmState = alarmStateEnum::Off; 
+                PRINTLN("cFA: stopped -> off");
             }
             break;
         }
@@ -577,7 +601,7 @@ void loop() {
 
     ezt::events();
 
-    setButtonStatesWithDebouncing();
+    setButtonStates();
     // debug button states:
     if (buttonState.lButtonPressed) {
         PRINTLN("l button pressed");
@@ -622,7 +646,7 @@ void loop() {
 
     displayTime();
     checkForAlarm();
-
+    
     server.handleClient();
 
     //delay(100); // TESTING ONLY!
