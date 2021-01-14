@@ -517,6 +517,7 @@ static void checkForAlarm () {
 
 static void displayTime (void) {
 
+/*
     //Requesting the time in a specific format
     // H = hours with leading 0
     // i = minutes with leading 0
@@ -527,9 +528,23 @@ static void displayTime (void) {
     int timeDecimal = timeHour * 100 + timeMinutes;
     //PRINTF("dT: timeString=%s h=%d m=%d\n", timeString.c_str(), timeHour, timeMinutes);
     // Pulse colon every second, but keep it on if the alarm is set
-    bool showColon = (TZ.second() % 2) || nextAlarm().set;
-    uint8_t dots = showColon << 6;
     display.showNumberDecEx(timeDecimal, dots, false);
+*/
+    uint8_t digits[4];
+    int hr = TZ.hour();
+    int mn = TZ.minute();
+    digits[0] = (hr > 9) ? display.encodeDigit(hr / 10) : 0;    // 0 means blank
+    digits[1] = display.encodeDigit(hr % 10);
+    digits[2] = display.encodeDigit(mn / 10);
+    digits[3] = display.encodeDigit(mn % 10);
+
+    // Pulse colon every second, but keep it on if the alarm is set
+    bool showColon = (TZ.second() % 2) || nextAlarm().set;
+    if (showColon) {
+        digits[1] |= 1 << 7;
+    }
+    display.setSegments(digits);
+
     
 }
 
