@@ -26,27 +26,15 @@ features from [James Brown's fork](https://github.com/jbrown123/arduino-alarm-cl
 ## Features
 
 * Gets the current time from the internet using the network time protocol, automatically adjusting for daylight savings in the local timezone.
+* Set the timezone via the web page.
 * Seven separate alarms -- one for every day of the week.
-* Colon flashes every second, and stays on if the next alarm is set.
-* RTTTL alarm melody.
-
+* Colon flashes every second, but stays on if the next alarm is set.
+* RTTTL alarm melody: set your own tune via the web page.
 
 ## To do
 
-* Allow tune selection on web page.
 * Volume control
 * Set alarm (and time) via the buttons.
-
-## Possibly later
-
-* WiFi connection details on the webpage.
-
-## Customisation
-
-Some adjustments require changes to the source code...
-
-* Timezone (defaults to Europe/London)
-* Alarm tune.  
 
 ## Instructions
 
