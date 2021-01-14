@@ -210,8 +210,13 @@ void handleADC() {
 
 void handleWiFi() {
     int rssi = getWifiQuality();
-    String rssiValue = String(rssi);    //sprintf("%d%  (Compiled %s)", rssi, TZ.dateTime(compileTime() - (TZ.getOffset() * 60)).c_str());
+    String rssiValue = String(rssi);
     server.send(200, "text/plain", rssiValue);
+}
+
+void handleTime() {
+    String time = TZ.dateTime("H:i");
+    server.send(200, "text/plain", time);
 }
 
 static bool webActive = false;
@@ -585,6 +590,7 @@ void setup() {
     //server.on("/deleteAlarm", handleDeleteAlarm);
     server.on("/getWiFi", handleWiFi);
     server.on("/readADC", handleADC);
+    server.on("/getTime", handleTime);
     server.onNotFound(handleNotFound);
     server.begin();
     Serial.println("HTTP Server Started");

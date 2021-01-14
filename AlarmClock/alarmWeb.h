@@ -68,6 +68,10 @@ const char webpage[] PROGMEM = R"=====(
           <label for=tz class="h3 mt-3">Timezone</label>
           <input type=text id=tz class="form-control" maxlength=32>
         </div>
+        <div class="col-auto">
+          <h3 class="mt-3">Current Time</h3>
+          <p id=currentTime class="h2 font-weight-bold font-italic">00:00</p>
+        </div>
       </div>
       <div class="form-row">
         <div class="col-auto">
@@ -87,8 +91,8 @@ const char webpage[] PROGMEM = R"=====(
             <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
         </div>
         <div class="col-sm text-left text-sm-right">
-            <i class="fab fa-github"></i> <a href="https://github.com/starsoftanalysis/arduino-alarm-clock/" target="_blank">GitHub</a><br>
-            <i class="far fa-question-circle"></i> <a href="http://blough.ie/bac/" target="_blank">Help & Support</a>
+            <i class="fab fa-fw fa-github"></i> <a href="https://github.com/starsoftanalysis/arduino-alarm-clock/" target="_blank">GitHub</a><br>
+            <i class="far fa-fw fa-question-circle"></i> <a href="http://blough.ie/bac/" target="_blank">Help & Support</a>
         </div>
       </div>
     </div>
@@ -150,28 +154,39 @@ function getAlarm(){
 setInterval(function() {
     getData();
     getWiFi();
+    getTime();  /* FIXME combine these? */
 }, 2000);
 
 function getData() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("ADCValue").innerHTML =
-                this.responseText;
+            document.getElementById("ADCValue").innerHTML = this.responseText;
         }
     };
     xhttp.open("GET", "readADC", true);
     xhttp.send();
 }
+
 function getWiFi() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
         if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("WiFiValue").innerHTML =
-                this.responseText;
+            document.getElementById("WiFiValue").innerHTML = this.responseText;
         }
     };
     xhttp.open("GET", "getWiFi", true);
+    xhttp.send();
+}
+
+function getTime() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            document.getElementById("currentTime").innerHTML = this.responseText;
+        }
+    };
+    xhttp.open("GET", "getTime", true);
     xhttp.send();
 }
 </script>
