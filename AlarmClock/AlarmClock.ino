@@ -40,17 +40,17 @@
 ****************************************************************/
 
 // TODO:
-// * change time zone when it's changed on the gui
+// * alarm won't turn off in first minute
 // * OTA updates
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
 // * more aria labels in html
+// * allow user to set light level for turning display off
 // * use #defines to set e.g. SNOOZE = LBUTTON etc. for ease of customisation
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
 // * async web server?? or more consistent use of webActive??
-// * display sometimes hunts -- depends on light level -- do running average?
-// * maybe use bool ezt's secondChanged() to display the time less often
+// * display sometimes flickers -- depends on light level -- do running average?  maybe it only flickers while uploading software
 // * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
@@ -63,6 +63,7 @@
 // - use ezTime events to trigger alarm?
 // * store alarm time as minutes since midnight instead of hour/minute
 // * ? define alarms as repeating or one-off.  or separate set of one-off alarms
+// * maybe use bool ezt's secondChanged() to display the time less often - no, frequent updates are good
 // DONE
 // * off completely if ldr < min -- not just on level
 // * colon if seconds % 2
@@ -87,6 +88,7 @@
 // * use ezt namespace
 // * 0:03 displays as '  : 3' !!
 // * only check for alarm once a minute (will avoid the nasty hack in nextAlarm())
+// * change time zone when it's changed on the gui
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -250,9 +252,14 @@ void handleSetAlarm() {
         }
     }
 
+    // Set timezone if it's changed
+    if (newConfig.tz != config.tz) {
+        TZ.setLocation(newConfig.tz);
+    }
+
     storeConfig(&newConfig);
     server.send(200, "text/html", "Alarm Set");
-    webActive=false;
+    webActive = false;
 }
 
 void handleGetAlarm() {
@@ -307,7 +314,7 @@ static void setButtonStates (void) {
     bool lButtonPressed = (digitalRead(LBUTTON_PIN) == LOW);
     bool rButtonPressed = (digitalRead(RBUTTON_PIN) == LOW);
 
-    // Reset all buttonState buttons first.
+    // Reset all buttonState flags first.
     buttonState.lButtonPressed = false;
     buttonState.rButtonPressed = false;
     buttonState.lButtonLong = false;
