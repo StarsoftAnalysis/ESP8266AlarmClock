@@ -40,9 +40,6 @@
 ****************************************************************/
 
 // TODO:
-// * 0:03 displays as '  : 3' !!
-// * only check for alarm once a minute (will avoid the nasty hack in nextAlarm())
-// OR call minuteChanged in nextAlarm and cache its answer
 // * change time zone when it's changed on the gui
 // * OTA updates
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
@@ -88,6 +85,8 @@
 // * GPL
 // * debounce buttons -- just one pause at a time:
 // * use ezt namespace
+// * 0:03 displays as '  : 3' !!
+// * only check for alarm once a minute (will avoid the nasty hack in nextAlarm())
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -517,19 +516,6 @@ static void checkForAlarm () {
 
 static void displayTime (void) {
 
-/*
-    //Requesting the time in a specific format
-    // H = hours with leading 0
-    // i = minutes with leading 0
-    // so 9:34am would come back "0934"
-    String timeString = TZ.dateTime("Hi");
-    int timeHour = timeString.substring(0,2).toInt();
-    int timeMinutes = timeString.substring(2).toInt();
-    int timeDecimal = timeHour * 100 + timeMinutes;
-    //PRINTF("dT: timeString=%s h=%d m=%d\n", timeString.c_str(), timeHour, timeMinutes);
-    // Pulse colon every second, but keep it on if the alarm is set
-    display.showNumberDecEx(timeDecimal, dots, false);
-*/
     uint8_t digits[4];
     int hr = TZ.hour();
     int mn = TZ.minute();
@@ -543,8 +529,8 @@ static void displayTime (void) {
     if (showColon) {
         digits[1] |= 1 << 7;
     }
-    display.setSegments(digits);
 
+    display.setSegments(digits);
     
 }
 
