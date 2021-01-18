@@ -40,7 +40,6 @@
 ****************************************************************/
 
 // TODO:
-// * alarm won't turn off in first minute
 // * OTA updates
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
@@ -58,12 +57,12 @@
 //   - need to combine https://bitbucket.org/teckel12/arduino-timer-free-tone/downloads/ with the non-blocking RTTTL
 //   - alarm to get louder gradually
 // * HTTPS? -- see http://www.iotsharing.com/2017/08/how-to-use-https-in-arduino-esp32.html
-// * test RTTTL by playing it???  No -- give a link to a site to test it https://adamonsoon.github.io/rtttl-play/
 // NO
 // - use ezTime events to trigger alarm?
 // * store alarm time as minutes since midnight instead of hour/minute
 // * ? define alarms as repeating or one-off.  or separate set of one-off alarms
 // * maybe use bool ezt's secondChanged() to display the time less often - no, frequent updates are good
+// * test RTTTL by playing it???  No -- give a link to a site to test it https://adamonsoon.github.io/rtttl-play/
 // DONE
 // * off completely if ldr < min -- not just on level
 // * colon if seconds % 2
