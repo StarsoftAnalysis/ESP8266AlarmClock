@@ -114,7 +114,8 @@
 // https://github.com/tzapu/WiFiManager
 
 //#include <TimerFreeTone.h>
-#include <NonBlockingRtttl.h>
+//#include <NonBlockingRtttl.h>
+#include <ESP8266RTTTLPlus.h>
 
 #include "debug.h"
 
@@ -260,6 +261,9 @@ void handleSetAlarm() {
     if (newConfig.tz != config.tz) {
         TZ.setLocation(newConfig.tz);
     }
+
+    // Set up melody in case any settings have changed
+    e8rtp::setup(BUZZER_PIN, 4 /* config.volume */, config.melody);
 
     storeConfig(&newConfig);
     server.send(200, "text/html", "Alarm Set");
@@ -422,6 +426,7 @@ static void checkForAlarm () {
                 alarmStateStart = now;  
                 alarmRepeatCount = 0;
                 alarmSnoozeCount = 0;
+                e8rtp::start();
                 PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.minute);
             }
             break;
@@ -434,12 +439,14 @@ static void checkForAlarm () {
                     alarmState = alarmStateEnum::Snoozed;
                     alarmStateStart = now;
                     alarmSnoozeCount = 1;
+                    e8rtp::pause();
                     PRINTF("cFA: ringing -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {   // TODO better choices of long/short/both button presses
                     // stop
                     alarmState = alarmStateEnum::Stopped;
                     stopMinute = TZ.minute();
                     alarmStateStart = now;  // not needed
+                    e8rtp::stop();
                     PRINTLN("cFA: ringing -> stopped (rButton)");
                 }
             } else if (now - alarmStateStart > alarmRingTime) {
@@ -447,11 +454,13 @@ static void checkForAlarm () {
                     // alarm ignored for long enough -- stop
                     alarmState = alarmStateEnum::Stopped;
                     stopMinute = TZ.minute();
+                    e8rtp::stop();
                     PRINTLN("cFA: ringing -> stopped (timeout)");
                 } else {
                     // pause
                     alarmState= alarmStateEnum::Paused;
                     alarmStateStart = now;
+                    e8rtp::pause();
                     PRINTLN("cFA: ringing -> paused");
                 }   
             }
@@ -468,6 +477,7 @@ static void checkForAlarm () {
                     // stop
                     alarmState = alarmStateEnum::Stopped;
                     stopMinute = TZ.minute();
+                    e8rtp::stop();
                     PRINTLN("cFA: snoozing -> stopped (rButton)");
                 }
             } else if (now - alarmStateStart > alarmSnoozeTime) {
@@ -475,11 +485,13 @@ static void checkForAlarm () {
                     // alarm ignored for long enough -- stop
                     alarmState = alarmStateEnum::Stopped;
                     stopMinute = TZ.minute();
+                    e8rtp::stop();
                     PRINTLN("cFA: snoozing stopped (enough snoozes))");
                 } else {
                     // back to ringing (but don't reset the counts)
                     alarmState = alarmStateEnum::Ringing;
                     alarmStateStart = now;  
+                    e8rtp::resume();
                     PRINTLN("cFA: snoozing -> ringing (timeout)");
                 }
             }
@@ -489,14 +501,16 @@ static void checkForAlarm () {
             if (buttonState.aButtonPressed) {
                 if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
                     // start the snooze from now
-                    alarmState = alarmStateEnum::Ringing;
+                    alarmState = alarmStateEnum::Snoozed;
                     alarmStateStart = now;
                     alarmSnoozeCount += 1;
+                    e8rtp::pause(); // (should be paused already)
                     PRINTF("cFA: paused -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {
                     // stop
                     alarmState = alarmStateEnum::Stopped;
                     stopMinute = TZ.minute();
+                    e8rtp::stop();
                     PRINTLN("cFA: paused -> stopped (rButton)");
                 }
             } else if (now - alarmStateStart > alarmPauseTime) {
@@ -504,6 +518,7 @@ static void checkForAlarm () {
                 alarmState = alarmStateEnum::Ringing;
                 alarmStateStart = now;  
                 alarmRepeatCount += 1;
+                e8rtp::resume();
                 PRINTF("cFA: paused -> ringing, repeat %d\n", alarmRepeatCount);
             }
             break;
@@ -535,7 +550,7 @@ static void displayTime (void) {
     digits[2] = display.encodeDigit(mn / 10);
     digits[3] = display.encodeDigit(mn % 10);
 
-    // Pulse colon every second, but keep it on if the alarm is set
+    // Toggle colon every second, but keep it on if the alarm is set
     bool showColon = (TZ.second() % 2) || nextAlarm().set;
     if (showColon) {
         digits[1] |= 1 << 7;
@@ -547,6 +562,7 @@ static void displayTime (void) {
 
 void setup() {
     Serial.begin(115200);
+    Serial.println("\n=======================");
 
     //Onboard LED port Direction output
     pinMode(LED_PIN, OUTPUT); 
@@ -558,8 +574,11 @@ void setup() {
     configSetup();
     loadConfig(); 
 
+    // ?? Needed -- e8rtp sets these
+    /*
     pinMode(BUZZER_PIN, OUTPUT);
     digitalWrite(BUZZER_PIN, LOW);
+    */
 
     pinMode(RBUTTON_PIN, INPUT_PULLUP);
     pinMode(LBUTTON_PIN, INPUT_PULLUP);
@@ -605,14 +624,18 @@ void setup() {
 
     timers::setup();
 
+    // Load the alarm tune   // FIXME configurable volume required
+    e8rtp::setup(BUZZER_PIN, 4, config.melody);
+
     alarmState = alarmStateEnum::Off;
 }
 
 void loop() {
 
+    // Library loops
     timers::loop();
-
     ezt::events();
+    e8rtp::loop();
 
     setButtonStates();
     // debug button states:
@@ -637,6 +660,7 @@ void loop() {
         timers::setTimer(TIMER_KEEP_LIGHT_ON, KEEP_LIGHT_ON_TIME, dontKeepLightOn); 
     }
 
+    /*
     if (alarmState == alarmStateEnum::Ringing) {
         if (rtttl::isPlaying()) {
             rtttl::play();	// keep playing stuff
@@ -650,6 +674,8 @@ void loop() {
             PRINTLN("stopped playing");
         }
     }
+    */
+
 
     if (buttonState.lButtonLong) {
         display.setSegments(SEG_CONF);
