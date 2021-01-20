@@ -41,7 +41,7 @@ const char webpage[] PROGMEM = R"=====(
       <h1 class="text-white mb-0"><i class="far fa-clock"></i> Alarm Clock</h1>
   </div>
 </nav>
-<main role="main" class="whyflex-shrink-0">
+<main role="main">
   <div class="container">
     <div class=form-group>
       <div class="form-row">
@@ -61,6 +61,8 @@ const char webpage[] PROGMEM = R"=====(
         <div class="col-auto">
           <label for=melody class="h3 mt-3">RTTTL Melody</label>
           <textarea id=melody class="form-control" rows="5" cols="60" maxlength=500></textarea>
+          <p class="h4 mt-3"><label for="volume">Volume:</label> <output class="xxform-control" for="volume" id="volumeOutput"></output>
+          <input class="form-control" type="range" name="volume" id="volume" min="0" max="11" step="1" value="5">
         </div>
         <div class="col-auto">
           <label for=tz class="h3 mt-3">Timezone</label>
@@ -97,11 +99,10 @@ const char webpage[] PROGMEM = R"=====(
 </footer>
 
 <script>
-$(document).ready(function() {
-    getWiFi();
-    getData();
-    getAlarm();
-});
+
+const volumeInput  = document.querySelector('#volume');
+const volumeOutput = document.querySelector('#volumeOutput');
+volumeOutput.textContent = volumeInput.value;
 
 function saveAlarm() {
     var parms = "volume=" + $("#volume").val();
@@ -135,6 +136,7 @@ function displayAlarm(data) {
     var obj = JSON.parse(data);
     //console.log("displayAlarm got %s i.e. %s", data, obj);
     $("#volume").val(obj["volume"]);
+    $("#volumeOutput").text(obj["volume"]);
     $("#melody").val(obj["melody"]);
     $("#tz").val(obj["tz"]);
     for (var dy = 0; dy < 7; dy++) {
@@ -142,6 +144,7 @@ function displayAlarm(data) {
         let alarmSet = obj["alarmDay"][dy]["alarmSet"] == "1";
         $("#set"+dy).prop("checked", alarmSet);
     }
+    volumeOutput.textContent = volume.value;
 }
 
 function getAlarm(){
@@ -187,6 +190,18 @@ function getTime() {
     xhttp.open("GET", "getTime", true);
     xhttp.send();
 }
+
+$(document).ready(function() {
+    getWiFi();
+    getData();
+    getAlarm();
+
+    volumeInput.addEventListener('input', function() {
+        //const parms = "volume=" + volume.value.toString();
+        //$.ajax({"url": "setvolume?" + parms, "success": setVolume, "error": ajaxError});
+        volumeOutput.textContent = volume.value;
+    });
+});
 </script>
   </body>
 </html>

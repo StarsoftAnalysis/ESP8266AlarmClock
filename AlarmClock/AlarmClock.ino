@@ -40,6 +40,7 @@
 ****************************************************************/
 
 // TODO:
+// * Updating the tune -- need to do e8rtp re-setup etc.
 // * OTA updates
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
@@ -227,7 +228,9 @@ void handleSetAlarm() {
         return;
     }
     webActive = true;
+
     config_t newConfig;
+    bool melodyChanged = false;
 
     //Serial.println("hSA: args: ");
     for (int i = 0; i < server.args(); i++) {
@@ -249,12 +252,20 @@ void handleSetAlarm() {
             //Serial.printf("\t\td=%d  %s\n", dy, alarmSet ? "y" : "n");
             newConfig.alarmDay[dy].set = alarmSet;
         } else if (server.argName(i) == "volume") {
-            newConfig.volume = constrain(server.arg(i).toInt(), 10, 100);
+            newConfig.volume = e8rtp::setVolume(server.arg(i).toInt()); // returns validated value
         } else if (server.argName(i) == "melody") {
+            melodyChanged = (strcmp(newConfig.melody, server.arg(i).substring(0, MELODY_MAX-1).c_str()) == 0);
             strlcpy(newConfig.melody, server.arg(i).substring(0, MELODY_MAX-1).c_str(), MELODY_MAX);
         } else if (server.argName(i) == "tz") {
             strlcpy(newConfig.tz, server.arg(i).substring(0, MELODY_MAX-1).c_str(), TZ_MAX);
         }
+    }
+
+    if (melodyChanged) {
+        if (e8rtp::state() == e8rtp::Playing) {
+            e8rtp::stop();
+        }
+        e8rtp::setup(BUZZER_PIN, newConfig.volume, newConfig.melody);
     }
 
     // Set timezone if it's changed
@@ -262,10 +273,7 @@ void handleSetAlarm() {
         TZ.setLocation(newConfig.tz);
     }
 
-    // Set up melody in case any settings have changed
-    e8rtp::setup(BUZZER_PIN, 4 /* config.volume */, config.melody);
-
-    storeConfig(&newConfig);
+    storeConfig(&newConfig);    // also copies newConfig to config
     server.send(200, "text/html", "Alarm Set");
     webActive = false;
 }
@@ -561,6 +569,7 @@ static void displayTime (void) {
 }
 
 void setup() {
+
     Serial.begin(115200);
     Serial.println("\n=======================");
 
@@ -573,12 +582,6 @@ void setup() {
 
     configSetup();
     loadConfig(); 
-
-    // ?? Needed -- e8rtp sets these
-    /*
-    pinMode(BUZZER_PIN, OUTPUT);
-    digitalWrite(BUZZER_PIN, LOW);
-    */
 
     pinMode(RBUTTON_PIN, INPUT_PULLUP);
     pinMode(LBUTTON_PIN, INPUT_PULLUP);
@@ -597,10 +600,6 @@ void setup() {
     display.showNumberDec(ipAddress[3], false);
     delay(1000);
 
-    //if (MDNS.begin("alarm")) {
-    //    Serial.println("MDNS Responder Started");
-    //}
-
     // HTTP Server
     server.on("/", handleRoot);
     server.on("/setAlarm", handleSetAlarm);
@@ -616,7 +615,7 @@ void setup() {
     // EZ Time
     //ezt::setDebug(INFO);
     ezt::setInterval(60);
-    ezt::setServer(String("uk.pool.ntp.org"));
+    ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
     ezt::waitForSync();
     Serial.println("\nUTC: " + UTC.dateTime());
     TZ.setLocation(config.tz);
@@ -624,8 +623,8 @@ void setup() {
 
     timers::setup();
 
-    // Load the alarm tune   // FIXME configurable volume required
-    e8rtp::setup(BUZZER_PIN, 4, config.melody);
+    // Load the alarm tune
+    e8rtp::setup(BUZZER_PIN, config.volume, config.melody);
 
     alarmState = alarmStateEnum::Off;
 }
@@ -660,22 +659,10 @@ void loop() {
         timers::setTimer(TIMER_KEEP_LIGHT_ON, KEEP_LIGHT_ON_TIME, dontKeepLightOn); 
     }
 
-    /*
-    if (alarmState == alarmStateEnum::Ringing) {
-        if (rtttl::isPlaying()) {
-            rtttl::play();	// keep playing stuff
-        } else {
-            PRINTLN("starting alarm tune");
-            rtttl::begin(BUZZER_PIN, config.melody);
-        }
-    } else {
-        if (rtttl::isPlaying()) {
-            rtttl::stop();
-            PRINTLN("stopped playing");
-        }
+    if ((alarmState == alarmStateEnum::Ringing) && (e8rtp::state() != e8rtp::Playing)) {
+        // Repeat the tune
+        e8rtp::start();
     }
-    */
-
 
     if (buttonState.lButtonLong) {
         display.setSegments(SEG_CONF);
@@ -688,5 +675,4 @@ void loop() {
     
     server.handleClient();
 
-    //delay(100); // TESTING ONLY!
 }
