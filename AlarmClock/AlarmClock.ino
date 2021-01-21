@@ -411,8 +411,22 @@ alarmDetails_t nextAlarm () {
     return next;
 }
 
+// Calculate exponential moving average to smooth the light level readings.
+// From https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average
+static int exponentialMovingAverage (int value) {
+    static float ema = 1023.0 / 2.0;  // Initialise to half the maximum sensor value
+    static const float alpha = 0.2;   // Tune this from 0.0 to 0.1: small values for lots of smoothing, bigger for quicker response
+    ema = alpha * (float)value + (1.0 - alpha) * ema;
+    return round(ema);
+}
+
+// Adjust the display brightness.
+// The LDR returns a value between 0 and 1023: apply smoothing,
+// and convert to the range 0..3, which is all the TM1637 seems to handle.
+// If the light is very low, turn off the display completely,
+// unless a button is being pressed.
 static void adjustBrightness() {
-    int sensorValue = analogRead(LDR_PIN);
+    int sensorValue = exponentialMovingAverage(analogRead(LDR_PIN));
     int level = sensorValue / 256;
     //Serial.printf("aB: ldr=%d level=%d button=%d\n", sensorValue, level, buttonState.aButtonPressed);
     display.setBrightness(level, sensorValue > 128 || buttonState.aButtonPressed || keepingLightOn);
