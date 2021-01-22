@@ -30,10 +30,11 @@ features from [James Brown's fork](https://github.com/jbrown123/arduino-alarm-cl
 * Seven separate alarms -- one for every day of the week.
 * Colon flashes every second, but stays on if the next alarm is set.
 * RTTTL alarm melody: set your own tune via the web page.
+* Volume control via the web page.
+* OTA software updates.
 
 ## To do
 
-* Volume control
 * Set alarm (and time) via the buttons.
 
 ## Instructions
@@ -61,6 +62,8 @@ To test the melody, copy-and-paste it into a site such as [Adam Rahwane](https:/
 
 The code includes the following libraries:
 
+| Library | Description |
+| ------- | ----------- |
 | ESP8266WiFi ||
 | WiFiClient ||
 | ESP8266WebServer ||
@@ -68,7 +71,7 @@ The code includes the following libraries:
 | TM1637Display | Library used for controlling the 7 Segment display Search for "TM1637" in the Arduino Library manager https://github.com/avishorp/TM1637 |
 | ArduinoJson version 6 ||
 | WiFiManager | Library used for creating the captive portal for entering WiFi Details Search for "Wifimanager" in the Arduino Library manager https://github.com/tzapu/WiFiManager |
-| NonBlockingRtttl ||
+| ESP8266RTTTLPlus | Non-blocking RTTTL player with volume control. |
 
 
 * The web page uses jQuery, Font Awesome, and Bootstrap 4 CSS, which it accesses directly from 

@@ -40,23 +40,20 @@
 ****************************************************************/
 
 // TODO:
-// * Updating the tune -- need to do e8rtp re-setup etc.
-// * OTA updates
+// * make use of PRINTLN vs Serial.println consistent.
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
 // * more aria labels in html
 // * allow user to set light level for turning display off
+// * allow user to set repeat/snooze times etc.
 // * use #defines to set e.g. SNOOZE = LBUTTON etc. for ease of customisation
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
 // * async web server?? or more consistent use of webActive??
-// * display sometimes flickers -- depends on light level -- do running average?  maybe it only flickers while uploading software
 // * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
-// * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
-//   - need to combine https://bitbucket.org/teckel12/arduino-timer-free-tone/downloads/ with the non-blocking RTTTL
-//   - alarm to get louder gradually
+// * alarm to get louder gradually
 // * HTTPS? -- see http://www.iotsharing.com/2017/08/how-to-use-https-in-arduino-esp32.html
 // NO
 // - use ezTime events to trigger alarm?
@@ -89,6 +86,10 @@
 // * 0:03 displays as '  : 3' !!
 // * only check for alarm once a minute (will avoid the nasty hack in nextAlarm())
 // * change time zone when it's changed on the gui
+// * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
+// * display sometimes flickers -- depends on light level -- do running average?  maybe it only flickers while uploading software
+// * Updating the tune -- need to do e8rtp re-setup etc.
+// * OTA updates
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -113,6 +114,10 @@
 // Library used for creating the captive portal for entering WiFi Details
 // Search for "Wifimanager" in the Arduino Library manager
 // https://github.com/tzapu/WiFiManager
+
+// OTA Updates — ESP8266 Arduino Core 2.4.0 documentation
+// https://arduino-esp8266.readthedocs.io/en/latest/ota_updates/readme.html
+#include <ArduinoOTA.h>
 
 //#include <TimerFreeTone.h>
 //#include <NonBlockingRtttl.h>
@@ -415,7 +420,7 @@ alarmDetails_t nextAlarm () {
 // From https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average
 static int exponentialMovingAverage (int value) {
     static float ema = 1023.0 / 2.0;  // Initialise to half the maximum sensor value
-    static const float alpha = 0.2;   // Tune this from 0.0 to 0.1: small values for lots of smoothing, bigger for quicker response
+    static const float alpha = 0.1;   // Tune this from 0.0 to 0.1: small values for lots of smoothing, bigger for quicker response
     ema = alpha * (float)value + (1.0 - alpha) * ema;
     return round(ema);
 }
@@ -424,12 +429,12 @@ static int exponentialMovingAverage (int value) {
 // The LDR returns a value between 0 and 1023: apply smoothing,
 // and convert to the range 0..3, which is all the TM1637 seems to handle.
 // If the light is very low, turn off the display completely,
-// unless a button is being pressed.
+// unless a button has been pressed recently.
 static void adjustBrightness() {
     int sensorValue = exponentialMovingAverage(analogRead(LDR_PIN));
     int level = sensorValue / 256;
     //Serial.printf("aB: ldr=%d level=%d button=%d\n", sensorValue, level, buttonState.aButtonPressed);
-    display.setBrightness(level, sensorValue > 128 || buttonState.aButtonPressed || keepingLightOn);
+    display.setBrightness(level, sensorValue > 128 || keepingLightOn);
 }
 
 static void checkForAlarm () {
@@ -635,6 +640,13 @@ void setup() {
     TZ.setLocation(config.tz);
     Serial.println("Local: " + TZ.dateTime());
 
+    // OTA Port defaults to 8266
+    // ArduinoOTA.setPort(8266);
+    // OTA hostname defaults to esp8266-[ChipID]
+    ArduinoOTA.setHostname("alarmclock");
+    ArduinoOTA.begin();	// start the OTA responder
+    PRINTLN("OTA server started");
+
     timers::setup();
 
     // Load the alarm tune
@@ -649,6 +661,8 @@ void loop() {
     timers::loop();
     ezt::events();
     e8rtp::loop();
+	ArduinoOTA.handle();
+    server.handleClient();
 
     setButtonStates();
     // debug button states:
@@ -686,7 +700,5 @@ void loop() {
 
     displayTime();
     checkForAlarm();
-    
-    server.handleClient();
 
 }
