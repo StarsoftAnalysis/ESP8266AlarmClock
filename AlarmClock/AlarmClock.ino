@@ -40,6 +40,9 @@
 ****************************************************************/
 
 // TODO:
+// * separate 'Settings' web page'
+//   - need to separate .js file and use it for both pages
+// * Maybe use SPIFFS or the new thing -- NO! will break OTA updates -- see https://github.com/jandrassy/ArduinoOTA#esp8266-and-esp32-support
 // * make use of PRINTLN vs Serial.println consistent.
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
@@ -429,12 +432,12 @@ static int exponentialMovingAverage (int value) {
 // The LDR returns a value between 0 and 1023: apply smoothing,
 // and convert to the range 0..3, which is all the TM1637 seems to handle.
 // If the light is very low, turn off the display completely,
-// unless a button has been pressed recently.
+// unless a button has been pressed recently, or the alarm is ringing.
 static void adjustBrightness() {
     int sensorValue = exponentialMovingAverage(analogRead(LDR_PIN));
     int level = sensorValue / 256;
     //Serial.printf("aB: ldr=%d level=%d button=%d\n", sensorValue, level, buttonState.aButtonPressed);
-    display.setBrightness(level, sensorValue > 128 || keepingLightOn);
+    display.setBrightness(level, sensorValue > 32 || keepingLightOn || alarmState == alarmStateEnum::Ringing);
 }
 
 static void checkForAlarm () {
