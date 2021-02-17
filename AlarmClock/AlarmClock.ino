@@ -437,7 +437,7 @@ static void adjustBrightness() {
     int sensorValue = exponentialMovingAverage(analogRead(LDR_PIN));
     int level = sensorValue / 256;
     //Serial.printf("aB: ldr=%d level=%d button=%d\n", sensorValue, level, buttonState.aButtonPressed);
-    display.setBrightness(level, sensorValue > 32 || keepingLightOn || alarmState == alarmStateEnum::Ringing);
+    display.setBrightness(level, sensorValue > 16 || keepingLightOn || alarmState == alarmStateEnum::Ringing);
 }
 
 static void checkForAlarm () {
