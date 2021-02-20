@@ -44,6 +44,7 @@
 //   - need to separate .js file and use it for both pages
 // * Maybe use SPIFFS or the new thing -- NO! will break OTA updates -- see https://github.com/jandrassy/ArduinoOTA#esp8266-and-esp32-support
 // * make use of PRINTLN vs Serial.println consistent.
+// * if no internet, prompt for manual time setting
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
 // * more aria labels in html
@@ -137,8 +138,10 @@
 // Letters as display segments
 #include "displayConf.h"
 
-// Declare 'webpage': 
-#include "alarmWeb.h"
+// Web pages and local javascript
+#include "mainpage.h"
+#include "settingspage.h"
+#include "js.h"
 
 // -----------------------------
 
@@ -202,25 +205,41 @@ void dontKeepLightOn (void) {
 
 // HTTP request handlers:
 
-void handleRoot() {
-    server.send(200, "text/html", webpage);
+void handleMain() {
+    PRINTF("Sending '/' length %d\n", strlen_P(mainpage));
+    server.send(200, "text/html", mainpage);
+}
+void handleSettings() {
+    PRINTF("Sending '/settings' length %d\n", strlen_P(settingspage));
+    server.send(200, "text/html", settingspage);
+}
+void handleJS() {
+    PRINTF("Sending '/js' length %d\n", strlen_P(js));
+    server.send(200, "text/html", js);
 }
 
 void handleNotFound() {
-    String message = "File Not Found\n";
+    char message[] = "File Not Found";
+    PRINTLN(message);
     server.send(404, "text/plain", message);
 }
 
 void handleADC() {
     int a = analogRead(LDR_PIN);
-    String adcValue = String(a);
-    server.send(200, "text/plain", adcValue); //Send ADC value only to client ajax request
+    //String adcValue = String(a);
+    char buffer[8];  
+    snprintf(buffer, sizeof(buffer), "%d", a);
+    PRINTF("Sending ADC value length %d\n", strlen(buffer));
+    server.send(200, "text/plain", buffer);
 }
 
 void handleWiFi() {
     int rssi = getWifiQuality();
-    String rssiValue = String(rssi);
-    server.send(200, "text/plain", rssiValue);
+    //String rssiValue = String(rssi);
+    char buffer[8];  
+    snprintf(buffer, sizeof(buffer), "%d", rssi);
+    PRINTF("Sending WiFi value length %d\n", strlen(buffer));
+    server.send(200, "text/plain", buffer);
 }
 
 void handleTime() {
@@ -294,11 +313,7 @@ void handleGetAlarm() {
     }
     webActive = true;
 
-    DynamicJsonDocument json(2000);
-
-    json["volume"] = config.volume;
-    json["melody"] = String(config.melody);
-    json["tz"] = String(config.tz);
+    DynamicJsonDocument json(2000); // FIXME tune this
 
     JsonArray days = json.createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
@@ -309,10 +324,32 @@ void handleGetAlarm() {
         obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
     }
 
-    String alarmString;
-    serializeJson(json, alarmString);
-    Serial.printf("hGA: sending %s\n", alarmString.c_str());
-    server.send(200, "text/plain", alarmString);
+    String s;
+    serializeJson(json, s);
+    Serial.printf("hGA: sending %s\n", s.c_str());
+    server.send(200, "text/plain", s);
+
+    webActive = false;
+}
+
+void handleGetSettings() {
+    // single threaded
+    if (webActive) {
+        server.send(503, "text/html", "busy - single threaded");
+        return;
+    }
+    webActive = true;
+
+    DynamicJsonDocument json(2000); // FIXME tune this
+
+    json["volume"] = config.volume;
+    json["melody"] = String(config.melody);
+    json["tz"] = String(config.tz);
+
+    String s;
+    serializeJson(json, s);
+    Serial.printf("hGA: sending %s\n", s.c_str());
+    server.send(200, "text/plain", s);
 
     webActive = false;
 }
@@ -623,9 +660,12 @@ void setup() {
     delay(1000);
 
     // HTTP Server
-    server.on("/", handleRoot);
+    server.on("/", handleMain);
+    server.on("/settings", handleSettings);
+    server.on("/js", handleJS);
     server.on("/setAlarm", handleSetAlarm);
     server.on("/getAlarm", handleGetAlarm);
+    server.on("/getSettings", handleGetSettings);
     //server.on("/deleteAlarm", handleDeleteAlarm);
     server.on("/getWiFi", handleWiFi);
     server.on("/readADC", handleADC);
@@ -633,6 +673,10 @@ void setup() {
     server.onNotFound(handleNotFound);
     server.begin();
     Serial.println("HTTP Server Started");
+    // TODO:
+    // if(!server.authenticate(username, password)){
+    //  server.requestAuthentication();
+    // }
 
     // EZ Time
     //ezt::setDebug(INFO);

@@ -1,4 +1,4 @@
-const char webpage[] PROGMEM = R"=====(
+const char mainpage[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang="en" class="h-100">
 <head>
@@ -30,8 +30,9 @@ const char webpage[] PROGMEM = R"=====(
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
 
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous" xdefer></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous" xdefer></script>
+    <script src="/js" xdefer></script>
 
 </head>
 
@@ -45,6 +46,7 @@ const char webpage[] PROGMEM = R"=====(
   <div class="container">
     <div class=form-group>
       <div class="form-row">
+
         <div class="col-auto">
           <h2 class="mt-3">Set the alarm</h2>
           <table class=table-sm>
@@ -58,27 +60,21 @@ const char webpage[] PROGMEM = R"=====(
             <tr><td>Saturday</td><td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td><td><input id="set6" class="form-control" type="checkbox" aria-label="Alarm set Saturday"</td></tr> 
           </table>
         </div>
+
         <div class="col-auto">
-          <label for=melody class="h3 mt-3">RTTTL Melody</label>
-          <textarea id=melody class="form-control" rows="5" cols="60" maxlength=500></textarea>
-          <p class="h4 mt-3"><label for="volume">Volume:</label> <output class="xxform-control" for="volume" id="volumeOutput"></output>
-          <input class="form-control" type="range" name="volume" id="volume" min="0" max="11" step="1" value="5">
+          <button class="btn btn-primary mt-3" type=button id=saveAlarm>Save</button>
         </div>
+
         <div class="col-auto">
-          <label for=tz class="h3 mt-3">Timezone</label>
-          <input type=text id=tz class="form-control" maxlength=32>
-        </div>
-        <div class="col-auto">
-          <h3 class="mt-3">Current Time</h3>
+          <h4 class="mt-3">Current Time</h4>
           <p id=currentTime class="h2 font-weight-bold font-italic">00:00</p>
         </div>
-      </div>
-      <div class="form-row">
-        <div class="col-auto">
-          <button class="btn btn-primary mt-3" type=button id=sendAlarm onclick='saveAlarm()'>Save</button>
-        </div>
+
       </div>
     </div>
+
+    <a href="/settings">Settings</a>
+
   </div>
 </main>
 
@@ -97,112 +93,6 @@ const char webpage[] PROGMEM = R"=====(
       </div>
     </div>
 </footer>
-
-<script>
-
-const volumeInput  = document.querySelector('#volume');
-const volumeOutput = document.querySelector('#volumeOutput');
-volumeOutput.textContent = volumeInput.value;
-
-function saveAlarm() {
-    var parms = "volume=" + $("#volume").val();
-    for (var dy = 0; dy < 7; dy++) {
-        var alarmTime = $("#time"+dy).val();
-        if (!alarmTime) {
-            alarmTime = "00:00";
-        }
-        parms += "&alarmTime" + dy + "=" + alarmTime + ";";
-        parms += "&alarmSet"  + dy + "=" + ($("#set"+dy).prop('checked') ? "1" : "0") + ";"
-    }
-    parms += "&melody=" + encodeURIComponent($("#melody").val());
-    parms += "&tz=" + encodeURIComponent($("#tz").val());
-    $.ajax({"url": "setAlarm?" + parms, "success": ajaxSuccess, "error": ajaxError});
-}
-
-function ajaxSuccess (data, status) {
-    $("#status").html("Settings saved");
-    console.log("setAlarm ajax sucess:  data=" + data + ", status=" + status);
-    window.setTimeout(function(){$("#status").html("")}, 5000);
-    getAlarm();	// update values (in case server constrained results)
-}
-
-function ajaxError (data, status) {
-    $("#status").html("ERROR!  data=" + data + ", status=" + status);
-    //window.setTimeout(function(){$("#status").html("")}, 2000);
-    //getAlarm();	// update values (in case server constrained results)
-}
-
-function displayAlarm(data) {
-    var obj = JSON.parse(data);
-    //console.log("displayAlarm got %s i.e. %s", data, obj);
-    $("#volume").val(obj["volume"]);
-    $("#volumeOutput").text(obj["volume"]);
-    $("#melody").val(obj["melody"]);
-    $("#tz").val(obj["tz"]);
-    for (var dy = 0; dy < 7; dy++) {
-        $("#time"+dy).val(obj["alarmDay"][dy]["alarmTime"]);
-        let alarmSet = obj["alarmDay"][dy]["alarmSet"] == "1";
-        $("#set"+dy).prop("checked", alarmSet);
-    }
-    volumeOutput.textContent = volume.value;
-}
-
-function getAlarm(){
-    $.ajax({"url": "getAlarm",
-            "success": displayAlarm});
-}
-
-setInterval(function() {
-    getData();
-    getWiFi();
-    getTime();  /* FIXME combine these? */
-}, 2000);
-
-function getData() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("ADCValue").innerHTML = this.responseText;
-        }
-    };
-    xhttp.open("GET", "readADC", true);
-    xhttp.send();
-}
-
-function getWiFi() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("WiFiValue").innerHTML = this.responseText;
-        }
-    };
-    xhttp.open("GET", "getWiFi", true);
-    xhttp.send();
-}
-
-function getTime() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("currentTime").innerHTML = this.responseText;
-        }
-    };
-    xhttp.open("GET", "getTime", true);
-    xhttp.send();
-}
-
-$(document).ready(function() {
-    getWiFi();
-    getData();
-    getAlarm();
-
-    volumeInput.addEventListener('input', function() {
-        //const parms = "volume=" + volume.value.toString();
-        //$.ajax({"url": "setvolume?" + parms, "success": setVolume, "error": ajaxError});
-        volumeOutput.textContent = volume.value;
-    });
-});
-</script>
   </body>
 </html>
 )=====";
