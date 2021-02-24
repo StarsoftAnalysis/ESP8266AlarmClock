@@ -97,7 +97,11 @@
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
+//#include <ESP8266WebServer.h>
+// TODO -- async stuff.  But might need https://github.com/khoih-prog/ESPAsync_WiFiManager_Lite/blob/main/examples/ESPAsync_WiFi/ESPAsync_WiFi.ino
+//         and that wants LittleFS and other things....
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 #include <ezTime.h>
 // Library used for getting the time and adjusting for DST
@@ -114,10 +118,20 @@
 // Search for "Arduino Json" in the Arduino Library manager
 // https://github.com/bblanchon/ArduinoJson
 
-#include <WiFiManager.h>
+//#include <WiFiManager.h>
 // Library used for creating the captive portal for entering WiFi Details
 // Search for "Wifimanager" in the Arduino Library manager
 // https://github.com/tzapu/WiFiManager
+
+// NO! the _Lite thing is rubbish -- use our own wifi.h
+/*
+// FIXME need to set CONFIG_EEPROM_START ??
+#define EEPROM_START 1024
+#include <ESPAsync_WiFiManager_Lite.h>
+bool LOAD_DEFAULT_CONFIG_DATA = false;  // Seems to be needed
+ESP_WM_LITE_Configuration defaultConfig;
+*/
+
 
 // OTA Updates — ESP8266 Arduino Core 2.4.0 documentation
 // https://arduino-esp8266.readthedocs.io/en/latest/ota_updates/readme.html
@@ -128,6 +142,9 @@
 #include <ESP8266RTTTLPlus.h>
 
 #include "debug.h"
+
+// Home-made WiFi config
+#include "wifi.h"
 
 // Home-made timers
 #include "timers.h"
@@ -141,6 +158,7 @@
 // Web pages and local javascript
 #include "mainpage.h"
 #include "settingspage.h"
+#include "wifipage.h"
 #include "js.h"
 
 // -----------------------------
@@ -158,7 +176,10 @@
 
 TM1637Display display(CLK_PIN, DIO_PIN);
 
-ESP8266WebServer server(80);
+//ESPAsyncWebServer server(80);
+//ESPAsync_WiFiManager_Lite* WiFiManager;
+
+static AsyncWebServer server(80);
 
 static Timezone TZ;
 
@@ -205,86 +226,96 @@ void dontKeepLightOn (void) {
 
 // HTTP request handlers:
 
-void handleMain() {
+static void handleMain (AsyncWebServerRequest* req) {
     PRINTF("Sending '/' length %d\n", strlen_P(mainpage));
-    server.send(200, "text/html", mainpage);
+	req->send_P(200, "text/html", mainpage);
 }
-void handleSettings() {
+static void handleSettings (AsyncWebServerRequest* req) {
     PRINTF("Sending '/settings' length %d\n", strlen_P(settingspage));
-    server.send(200, "text/html", settingspage);
+    req->send_P(200, "text/html", settingspage);
 }
-void handleJS() {
+static void handleWifiSettings (AsyncWebServerRequest* req) {
+    PRINTF("Sending '/wifisettings' length %d\n", strlen_P(wifipage));
+    req->send_P(200, "text/html", wifipage);
+}
+static void handleJS (AsyncWebServerRequest* req) {
     PRINTF("Sending '/js' length %d\n", strlen_P(js));
-    server.send(200, "text/html", js);
+    req->send_P(200, "text/javascript", js);
 }
 
-void handleNotFound() {
-    char message[] = "File Not Found";
-    PRINTLN(message);
-    server.send(404, "text/plain", message);
+static void handleNotFound (AsyncWebServerRequest* req) {
+    if (req->method() == HTTP_OPTIONS) {
+        req->send(200);
+    } else {
+        req->send(404);
+    }
 }
 
-void handleADC() {
+static void handleADC(AsyncWebServerRequest* req) {
     int a = analogRead(LDR_PIN);
     //String adcValue = String(a);
     char buffer[8];  
     snprintf(buffer, sizeof(buffer), "%d", a);
-    PRINTF("Sending ADC value length %d\n", strlen(buffer));
-    server.send(200, "text/plain", buffer);
+    //PRINTF("Sending ADC value length %d\n", strlen(buffer));
+    req->send(200, "text/plain", buffer);
 }
 
-void handleWiFi() {
+static void handleWiFi(AsyncWebServerRequest* req) {
     int rssi = getWifiQuality();
     //String rssiValue = String(rssi);
     char buffer[8];  
     snprintf(buffer, sizeof(buffer), "%d", rssi);
-    PRINTF("Sending WiFi value length %d\n", strlen(buffer));
-    server.send(200, "text/plain", buffer);
+    //PRINTF("Sending WiFi value length %d\n", strlen(buffer));
+    req->send(200, "text/plain", buffer);
 }
 
-void handleTime() {
+static void handleTime(AsyncWebServerRequest* req) {
     String time = TZ.dateTime("H:i");
-    server.send(200, "text/plain", time);
+    req->send(200, "text/plain", time);
 }
 
-static bool webActive = false;
-void handleSetAlarm() {
+//static bool webActive = false;
+static void handleSetAlarm(AsyncWebServerRequest* req) {
+/*
     // single threaded
     if (webActive) {
         server.send(503, "text/html", "busy - single threaded");
         return;
     }
     webActive = true;
-
+*/
     config_t newConfig;
     bool melodyChanged = false;
 
     //Serial.println("hSA: args: ");
-    for (int i = 0; i < server.args(); i++) {
+    //for (int i = 0; i < server.args(); i++) {
+    int params = req->params();
+    for (int i = 0; i < params; i++) {
+        AsyncWebParameter* p = req->getParam(i);
         //Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
-        if (server.argName(i).substring(0,9) == "alarmTime") {
-            //Serial.printf("\t\tdaystring = %s\n", server.argName(i).substring(9).c_str());
-            int dy = constrain(server.argName(i).substring(9).toInt(), 0, 6);  // returns 0 on error!
-            String alarmTime = server.arg(i);
+        if (p->name().substring(0,9) == "alarmTime") {
+            //Serial.printf("\t\tdaystring = %s\n", p->name().substring(9).c_str());
+            int dy = constrain(p->name().substring(9).toInt(), 0, 6);  // returns 0 on error!
+            String alarmTime = p->value();
             int indexOfColon = alarmTime.indexOf(":");
             int alarmHour = constrain(alarmTime.substring(0, indexOfColon).toInt(), 0, 23);
             int alarmMinute = constrain(alarmTime.substring(indexOfColon + 1).toInt(), 0, 59);
             //Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
             newConfig.alarmDay[dy].hour = alarmHour;
             newConfig.alarmDay[dy].minute = alarmMinute;
-        } else if (server.argName(i).substring(0,8) == "alarmSet") {
-            //Serial.printf("\t\tdaystring = %s   %s\n", server.argName(i).c_str(), server.argName(i).substring(8).c_str());
-            int dy = constrain(server.argName(i).substring(8).toInt(), 0, 6);  // returns 0 on error!
-            bool alarmSet = (server.arg(i) == "1");
+        } else if (p->name().substring(0,8) == "alarmSet") {
+            //Serial.printf("\t\tdaystring = %s   %s\n", p->name().c_str(), p->name().substring(8).c_str());
+            int dy = constrain(p->name().substring(8).toInt(), 0, 6);  // returns 0 on error!
+            bool alarmSet = (p->value() == "1");
             //Serial.printf("\t\td=%d  %s\n", dy, alarmSet ? "y" : "n");
             newConfig.alarmDay[dy].set = alarmSet;
-        } else if (server.argName(i) == "volume") {
-            newConfig.volume = e8rtp::setVolume(server.arg(i).toInt()); // returns validated value
-        } else if (server.argName(i) == "melody") {
-            melodyChanged = (strcmp(newConfig.melody, server.arg(i).substring(0, MELODY_MAX-1).c_str()) == 0);
-            strlcpy(newConfig.melody, server.arg(i).substring(0, MELODY_MAX-1).c_str(), MELODY_MAX);
-        } else if (server.argName(i) == "tz") {
-            strlcpy(newConfig.tz, server.arg(i).substring(0, MELODY_MAX-1).c_str(), TZ_MAX);
+        } else if (p->name() == "volume") {
+            newConfig.volume = e8rtp::setVolume(p->value().toInt()); // returns validated value
+        } else if (p->name() == "melody") {
+            melodyChanged = (strcmp(newConfig.melody, p->value().substring(0, MELODY_MAX-1).c_str()) == 0);
+            strlcpy(newConfig.melody, p->value().substring(0, MELODY_MAX-1).c_str(), MELODY_MAX);
+        } else if (p->name() == "tz") {
+            strlcpy(newConfig.tz, p->value().substring(0, MELODY_MAX-1).c_str(), TZ_MAX);
         }
     }
 
@@ -301,17 +332,17 @@ void handleSetAlarm() {
     }
 
     storeConfig(&newConfig);    // also copies newConfig to config
-    server.send(200, "text/html", "Alarm Set");
-    webActive = false;
+    req->send(200, "text/html", "Alarm Set");
+    //webActive = false;
 }
 
-void handleGetAlarm() {
-    // single threaded
+static void handleGetAlarm(AsyncWebServerRequest* req) {
+  /*  // single threaded
     if (webActive) {
         server.send(503, "text/html", "busy - single threaded");
         return;
     }
-    webActive = true;
+    webActive = true; */
 
     DynamicJsonDocument json(2000); // FIXME tune this
 
@@ -327,18 +358,18 @@ void handleGetAlarm() {
     String s;
     serializeJson(json, s);
     Serial.printf("hGA: sending %s\n", s.c_str());
-    server.send(200, "text/plain", s);
+    req->send(200, "text/plain", s);
 
-    webActive = false;
+    //webActive = false;
 }
 
-void handleGetSettings() {
-    // single threaded
+static void handleGetSettings(AsyncWebServerRequest* req) {
+    /* // single threaded
     if (webActive) {
         server.send(503, "text/html", "busy - single threaded");
         return;
     }
-    webActive = true;
+    webActive = true; */
 
     DynamicJsonDocument json(2000); // FIXME tune this
 
@@ -349,16 +380,18 @@ void handleGetSettings() {
     String s;
     serializeJson(json, s);
     Serial.printf("hGA: sending %s\n", s.c_str());
-    server.send(200, "text/plain", s);
+    req->send(200, "text/plain", s);
 
-    webActive = false;
+    //webActive = false;
 }
 
+/*
 void configModeCallback (WiFiManager *myWiFiManager) {
     Serial.println("Entered WiFi config mode");
     Serial.println(WiFi.softAPIP());
     display.setSegments(SEG_WIFI);
 }
+*/
 
 static void setButtonStates (void) {
     // Check for button presses, with 'debouncing' so that a single press is only detected for one loop.
@@ -640,28 +673,42 @@ void setup() {
     display.setSegments(SEG_BOOT);
 
     configSetup();
-    loadConfig(); 
+    loadConfigs(); 
 
     pinMode(RBUTTON_PIN, INPUT_PULLUP);
     pinMode(LBUTTON_PIN, INPUT_PULLUP);
 
     //attachInterrupt(RBUTTON_PIN, interuptButton, RISING);  // TODO both buttons, or probably not at all
 
+/*
     WiFiManager wifiManager;
     wifiManager.setAPCallback(configModeCallback);
     wifiManager.autoConnect("AlarmClock");  // could check boolean rc from this
-    IPAddress ipAddress = WiFi.localIP();
+*/
+/*
+    WiFiManager = new ESPAsync_WiFiManager_Lite();
+    // Optional to change default AP IP(192.168.4.1) and channel(10)
+    //ESPAsync_WiFiManager->setConfigPortalIP(IPAddress(192, 168, 120, 1));
+    WiFiManager->setConfigPortalChannel(0);
+    // Set customized DHCP HostName
+    WiFiManager->begin("AlarmClock");
+*/
 
+    timers::setup();
+
+    wifi_setup();
+
+    IPAddress ipAddress = WiFi.localIP();
     Serial.println("\nWiFi Connected");
     Serial.print("IP address: ");
     Serial.println(ipAddress);
-
     display.showNumberDec(ipAddress[3], false);
     delay(1000);
 
     // HTTP Server
     server.on("/", handleMain);
     server.on("/settings", handleSettings);
+    server.on("/wifisettings", handleWifiSettings);
     server.on("/js", handleJS);
     server.on("/setAlarm", handleSetAlarm);
     server.on("/getAlarm", handleGetAlarm);
@@ -670,6 +717,9 @@ void setup() {
     server.on("/getWiFi", handleWiFi);
     server.on("/readADC", handleADC);
     server.on("/getTime", handleTime);
+    server.on("/wifiGet", handleWifiGet);
+    //server.on("/wifiSet", handleWifiSet);
+    server.addHandler(handleWifiSetJSON);
     server.onNotFound(handleNotFound);
     server.begin();
     Serial.println("HTTP Server Started");
@@ -678,11 +728,12 @@ void setup() {
     //  server.requestAuthentication();
     // }
 
+    // FIXME need to wait for internet if in AP mode
     // EZ Time
     //ezt::setDebug(INFO);
     ezt::setInterval(60);
     ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
-    ezt::waitForSync();
+    // NO!! -- wifi not going yet.   ezt::waitForSync();
     Serial.println("\nUTC: " + UTC.dateTime());
     TZ.setLocation(config.tz);
     Serial.println("Local: " + TZ.dateTime());
@@ -693,8 +744,6 @@ void setup() {
     ArduinoOTA.setHostname("alarmclock");
     ArduinoOTA.begin();	// start the OTA responder
     PRINTLN("OTA server started");
-
-    timers::setup();
 
     // Load the alarm tune
     e8rtp::setup(BUZZER_PIN, config.volume, config.melody);
@@ -709,7 +758,7 @@ void loop() {
     ezt::events();
     e8rtp::loop();
 	ArduinoOTA.handle();
-    server.handleClient();
+    //server.handleClient();
 
     setButtonStates();
     // debug button states:

@@ -23,6 +23,19 @@
 #ifndef HEADER_CONFIG
 #define HEADER_CONFIG
 
+// Max no. of WiFi networks known
+const int wifimax = 3;
+
+// WiFi config data
+typedef struct {
+	uint32_t signature;
+	char hostname[32];      // Arbitrary length
+	struct {
+		char ssid[33];		// keep these empty when not in use
+		char psk[64];
+	} wifi[wifimax];
+} configw_t;
+
 typedef struct {
 	int  hour;
 	int  minute;
@@ -33,18 +46,22 @@ typedef struct {
 #define TZ_MAX 33
 typedef struct {
 	uint32_t       signature;
-	int            volume;      // 1-100% (really only works in 10% increments; 10-100)   FIXME really doesn't work at all!
+	int            volume;
 	alarmDetails_t alarmDay[7]; // one for each day, 0=Sun ... 6=Sat
 	char		   tz[TZ_MAX];
 	char           melody[MELODY_MAX];
 } config_t;
 
 extern config_t config;         // stored in config.cpp
+extern configw_t configw;
 
-void configSetup();
-void loadConfig (void);
+void configSetup (void);
+void loadConfigs (void);
 void storeConfig (config_t *new_config);
-void printConfig ();	//config_t *c = &config);
+void storeConfigW (configw_t *new_configw);
+void printConfig (void);
+void printConfigW (void);
+int ssidCount (void);
 
 #endif
 

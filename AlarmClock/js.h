@@ -61,13 +61,15 @@ function displaySettings(data) {
 }
 
 function getAlarm(){
-    $.ajax({"url": "getAlarm",
-            "success": displayAlarm});
+    $.ajax({url: "getAlarm",
+            type: "POST",
+            success: displayAlarm});
 }
 
 function getSettings(){
-    $.ajax({"url": "getSettings",
-            "success": displaySettings});
+    $.ajax({url: "getSettings",
+            type: "POST",
+            success: displaySettings});
 }
 
 

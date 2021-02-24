@@ -61,6 +61,7 @@ namespace timers {
 			Serial.printf("cancelTimer: invalid id %i ignored\r\n", id);
 			return;
 		}
+		//PRINTF("cancelTimer: timer %d cancelled\n", id);
 		timers[id].fn = NULL;
 	}
 
@@ -69,15 +70,17 @@ namespace timers {
 		for (int i = 0; i < TIMERCOUNT; i++) {
 			timers[i].fn = NULL;
 		}
+		//PRINTF("%d timers set up\n", TIMERCOUNT);
 	}
 
-	// The utils loop runs the timers
+	// Call this from the main loop to run the timers
 	void loop () {
 		for (int i = 0; i < TIMERCOUNT; i++) {
 			if (timers[i].fn != NULL) {
 				if (millis() - timers[i].start > timers[i].delay) {
 					TimerFn fncopy = timers[i].fn;
 					timers[i].fn = NULL;    // just run it once
+					//PRINTF("Timer %d triggered\n", i);
 					fncopy();
 				}
 			}

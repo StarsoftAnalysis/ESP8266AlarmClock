@@ -64,7 +64,8 @@ const char settingspage[] PROGMEM = R"=====(
       </div>
     </div>
 
-    <a href="/">Main Page</a>
+    <p><a href="/">Main Page</a>
+    <p><a href="/wifisettings">WiFi Settings</a>
 
   </div>
 </main>

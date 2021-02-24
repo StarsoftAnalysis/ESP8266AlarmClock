@@ -73,7 +73,7 @@ const char mainpage[] PROGMEM = R"=====(
       </div>
     </div>
 
-    <a href="/settings">Settings</a>
+    <p><a href="/settings">Settings</a>
 
   </div>
 </main>
