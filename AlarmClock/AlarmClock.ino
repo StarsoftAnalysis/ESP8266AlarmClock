@@ -1,5 +1,5 @@
 /*******************************************************************
-    Alarm Clock
+    ESP8266AlarmClock
     An Alarm clock that gets its time from the internet
     for use with Brian Lough's alarm clock kit at https://www.tindie.com/products/15402/
     (or similar ESP8266-based circuit)
@@ -651,7 +651,7 @@ void setup() {
 
     WiFiManager wifiManager;
     wifiManager.setAPCallback(configModeCallback);
-    wifiManager.autoConnect("AlarmClock");  // could check boolean rc from this
+    wifiManager.autoConnect("ESP8266AlarmClock");  // could check boolean rc from this
     IPAddress ipAddress = WiFi.localIP();
 
     Serial.println("\nWiFi Connected");

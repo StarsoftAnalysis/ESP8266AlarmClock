@@ -1,4 +1,4 @@
-# arduino-alarm-clock
+# ESP8266AlarmClock
 
 ESP8266 code to run a simple alarm clock, running on [Brian Lough](http://blough.ie/bac/)'s
 alarm clock kit, which is available from [Tindie](https://www.tindie.com/products/brianlough/blough-alarm-clock-shield-for-wemos-d1-mini/).
@@ -8,9 +8,9 @@ features from [James Brown's fork](https://github.com/jbrown123/arduino-alarm-cl
 
     Copyright 2021 Chris Dennis
 
-    This file is part of AlarmClock.
+    This file is part of ESP8266AlarmClock.
 
-    AlarmClock is free software: you can redistribute it and/or modify
+    ESP8266AlarmClock is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
@@ -21,7 +21,7 @@ features from [James Brown's fork](https://github.com/jbrown123/arduino-alarm-cl
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
+    along with ESP8266AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Features
 
@@ -40,7 +40,7 @@ features from [James Brown's fork](https://github.com/jbrown123/arduino-alarm-cl
 ## Instructions
 
 * Initially, or when no known WiFi networks are available, the clock will run as a separate WiFi network called
-"Alarm Clock", and 
+"ESP8266AlarmClock", and 
 its interface will be available as [http://192.168.4.1](http://192.168.4.1).
 Connect to that network, and browse to that page and enter your WiFi details.  After that, the clock
 will connect to your network, and try to update the time via NTP.
