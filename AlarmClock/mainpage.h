@@ -82,7 +82,7 @@ const char mainpage[] PROGMEM = R"=====(
     <div class="container">
       <div class="row">
         <div class="col-sm">
-            <i class='fas fa-fw fa-code-branch'></i> Version: 0.1.5<br>
+            <i class='fas fa-fw fa-code-branch'></i> Version: 0.2.0dev<br>
             <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>%<br>
             <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
         </div>
