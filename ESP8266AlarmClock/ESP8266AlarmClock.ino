@@ -433,32 +433,23 @@ static void setButtonStates (void) {
     buttonState.bButtonPressed = (buttonState.lButtonPressed && buttonState.rButtonPressed);
 }
 
-// Get details of next alarm (whether it's set or not),
-// 
-alarmDetails_t nextAlarm () {
-    static alarmDetails_t next = {0, 0, false};
-    //static int lastMinute = 0;
-    //int thisMinute = TZ.minute()
-    //if (thisMinute != lastMinute) {
-        // Get 'now' as day of week, hour, minute
-        int wd = TZ.weekday()-1;    // 0 = Sunday  (ezTime has 1=Sunday)
-        int hr = TZ.hour();
-        int mn = TZ.minute();
-    //    if (TZ.second() > 1) { //10) {
-    //        // FIXME maybe a first-time flag instead -- would need to reset the flag every minute?  or do it in checkForAlarm?
-    //        // Hack so that alarms only get done once  -- may need tuning, especially if this isn't called every loop FIXME
-    //        mn += 1;    // Don't need to adjust if mn>59
-    //    }
-        alarmDetails_t today = config.alarmDay[wd];
-        alarmDetails_t tomorrow = config.alarmDay[(wd+1) % 7];
-        if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
-            next = today;
-        } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
-            next = tomorrow;
-        }
-        //Serial.printf("alarmDue: dow=%d hr=%d min=%d  today: %d %02d:%02d  tmrw: %d %02d:%02d  due=%d\n", dow, hour, mins, today.set, today.hour, today.minute, tomorrow.set, tomorrow.hour, tomorrow.minute, due); 
-    //    lastMinute = thisMinute;
-    //}
+// Get the index (into config.alarmDay) of the next alarm. 
+// Returns -1 if there is no alarm in the next 24 hours.
+static int nextAlarmIndex (void) {
+    int next = -1;
+    // Get 'now' as day of week, hour, minute
+    int wd = TZ.weekday() - 1;    // 0 = Sunday  (ezTime has 1=Sunday)
+    int wd1 = (wd + 1) % 7;
+    int hr = TZ.hour();
+    int mn = TZ.minute();
+    alarmDetails_t today = config.alarmDay[wd];
+    alarmDetails_t tomorrow = config.alarmDay[wd1];
+    if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
+        next = wd;
+    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
+        next = wd1;
+    }
+    //PRINTF("nAI: wd=%d wd1=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d\n", wd, wd1, hr, mn, today.hour, today.minute, today.set, tomorrow.hour, tomorrow.minute, tomorrow.set, next);
     return next;
 }
 
@@ -491,16 +482,19 @@ static void checkForAlarm () {
     //PRINTF("cFA: alarmState is %d   time is %02d:%02d\n", alarmState, hr, mn);
     switch (alarmState) {
         case alarmStateEnum::Off: {
-            alarmDetails_t alarm = nextAlarm();
-            //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
-            if (alarm.set && hr == alarm.hour && mn == alarm.minute) {
-                // set time -- start ringing
-                alarmState = alarmStateEnum::Ringing;
-                alarmStateStart = now;  
-                alarmRepeatCount = 0;
-                alarmSnoozeCount = 0;
-                e8rtp::start();
-                PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.minute);
+            int i = nextAlarmIndex();
+            if (i >= 0) {
+                alarmDetails_t alarm = config.alarmDay[i];
+                //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
+                if (alarm.set && hr == alarm.hour && mn == alarm.minute) {
+                    // set time -- start ringing
+                    alarmState = alarmStateEnum::Ringing;
+                    alarmStateStart = now;  
+                    alarmRepeatCount = 0;
+                    alarmSnoozeCount = 0;
+                    e8rtp::start();
+                    PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.minute);
+                }
             }
             break;
         }
@@ -624,13 +618,22 @@ static void displayTime (void) {
     digits[3] = display.encodeDigit(mn % 10);
 
     // Toggle colon every second, but keep it on if the alarm is set
-    bool showColon = (TZ.second() % 2) || nextAlarm().set;
+    int i = nextAlarmIndex();
+    bool set = (i >= 0) && (config.alarmDay[i].set);
+    bool showColon = set || (TZ.second() % 2);
     if (showColon) {
         digits[1] |= 1 << 7;
     }
 
     display.setSegments(digits);
     
+}
+
+static void toggleNextAlarm (void) {
+    int i = nextAlarmIndex();
+    if (i >= 0) {
+       config.alarmDay[i].set ^= true;
+    }
 }
 
 void setup() {
@@ -740,15 +743,19 @@ void loop() {
         timers::setTimer(TIMER_KEEP_LIGHT_ON, KEEP_LIGHT_ON_TIME, dontKeepLightOn); 
     }
 
-    if ((alarmState == alarmStateEnum::Ringing) && (e8rtp::state() != e8rtp::Playing)) {
-        // Repeat the tune
-        e8rtp::start();
-    }
-
     if (buttonState.lButtonLong) {
         display.setSegments(SEG_CONF);
         PRINTLN("Config mode -- would be here...");
         delay(1000);
+    }
+
+    if (buttonState.rButtonLong) {
+        toggleNextAlarm();
+    }
+
+    if ((alarmState == alarmStateEnum::Ringing) && (e8rtp::state() != e8rtp::Playing)) {
+        // Repeat the tune
+        e8rtp::start();
     }
 
     displayTime();
