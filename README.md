@@ -54,7 +54,8 @@ after the 'boot' message each time it is connected to the power supply.
 
 * You can paste in the RTTTL code for a different melody of required -- melodies can be found
 on the web ([Picaxe](https://picaxe.com/rtttl-ringtones-for-tune-command/), for example), or you can create your own.
-To test the melody, copy-and-paste it into a site such as [Adam Rahwane](https://adamonsoon.github.io/rtttl-play/)'s.
+To test the melody, copy-and-paste it into a site such as [Adam Rahwane](https://adamonsoon.github.io/rtttl-play/)'s
+(although that site is a bit picky about the RTTTL syntax that it will accept).
 
 * Choose your timezone from the list on [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
 

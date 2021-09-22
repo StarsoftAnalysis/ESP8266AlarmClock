@@ -140,9 +140,12 @@
 // Letters as display segments
 #include "displayConf.h"
 
-// Web pages and local javascript
+// Web pages and local javascript.
+// Defines "const char mainpage[]":
 #include "mainpage.h"
+// Defines "const char settingspage[]":
 #include "settingspage.h"
+// Defines "const char js[]":
 #include "js.h"
 
 // -----------------------------
@@ -178,15 +181,16 @@ struct {
 #define LONG_BUTTON_PRESS_TIME 2000
 
 // Alarm state etc.
-enum class alarmStateEnum { Off, Ringing, Snoozed, Paused, Stopped };
-static alarmStateEnum alarmState = alarmStateEnum::Off;
-static long unsigned alarmStateStart;
-static const long unsigned alarmRingTime = 60 * 1000;  // ms
-static int alarmRepeatCount;
-static const int alarmRepeatMax = 3;
-static const long unsigned alarmPauseTime = 60 * 1000;  // ms
-static int alarmSnoozeCount;
-static const int alarmSnoozeMax = 3;
+enum class                 alarmStateEnum { Off, Ringing, Snoozed, Paused, Stopped };
+static                     alarmStateEnum alarmState = alarmStateEnum::Off;
+static long unsigned       alarmStateStart;
+static int                 alarmRepeatCount;
+static int                 alarmSnoozeCount;
+// These could be user-configurable:    TODO
+static const long unsigned alarmPauseTime  = 60 * 1000;  // ms
+static const long unsigned alarmRingTime   = 60 * 1000;  // ms
+static const int           alarmRepeatMax  = 3;
+static const int           alarmSnoozeMax  = 3;
 static const long unsigned alarmSnoozeTime = 60 * 1000;  // ms
  
 // converts the dBm to a range between 0 and 100%
