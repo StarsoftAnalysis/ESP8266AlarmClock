@@ -6,20 +6,20 @@ const char mainpage[] PROGMEM = R"=====(
 
     Copyright 2021 Chris Dennis
 
-    This file is part of AlarmClock.
+    This file is part of ESP8266AlarmClock.
 
-    AlarmClock is free software: you can redistribute it and/or modify
+    ESP8266AlarmClock is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    AlarmClock is distributed in the hope that it will be useful,
+    ESP8266AlarmClock is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
+    along with ESP8266AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
 
 -->
     <title>Alarm Clock</title>
@@ -87,8 +87,7 @@ const char mainpage[] PROGMEM = R"=====(
             <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
         </div>
         <div class="col-sm text-left text-sm-right">
-            <i class="fab fa-fw fa-github"></i> <a href="https://github.com/starsoftanalysis/arduino-alarm-clock/" target="_blank">GitHub</a><br>
-            <i class="far fa-fw fa-question-circle"></i> <a href="http://blough.ie/bac/" target="_blank">Help & Support</a>
+            <i class="fab fa-fw fa-github"></i> <a href="https://github.com/starsoftanalysis/ESP8266AlarmClock/" target="_blank">GitHub</a><br>
         </div>
       </div>
     </div>
