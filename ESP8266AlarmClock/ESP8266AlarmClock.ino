@@ -235,7 +235,7 @@ void handleADC() {
     //String adcValue = String(a);
     char buffer[8];  
     snprintf(buffer, sizeof(buffer), "%d", a);
-    PRINTF("Sending ADC value length %d\n", strlen(buffer));
+    //PRINTF("Sending ADC value length %d\n", strlen(buffer));
     server.send(200, "text/plain", buffer);
 }
 
@@ -244,7 +244,7 @@ void handleWiFi() {
     //String rssiValue = String(rssi);
     char buffer[8];  
     snprintf(buffer, sizeof(buffer), "%d", rssi);
-    PRINTF("Sending WiFi value length %d\n", strlen(buffer));
+    //PRINTF("Sending WiFi value length %d\n", strlen(buffer));
     server.send(200, "text/plain", buffer);
 }
 

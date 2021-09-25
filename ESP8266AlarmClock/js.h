@@ -1,115 +1,123 @@
 const char js[] PROGMEM = R"=====(
+ 
+// Fields by id   TODO how does vplot do it now?
+let volume, volumeOutput, melody, tz, statusMsg, saveAlarmButton, saveSettingsButton, adcValue, wifiValue, currentTime;
+let time = [];
+let set = [];
 
 function saveAlarm() {
     var parms = "";
     for (var dy = 0; dy < 7; dy++) {
-        var alarmTime = $("#time"+dy).val();
+        var alarmTime = time[dy].value;
         if (!alarmTime) {
             alarmTime = "00:00";
         }
         parms += "&alarmTime" + dy + "=" + alarmTime + ";";
-        parms += "&alarmSet"  + dy + "=" + ($("#set"+dy).prop('checked') ? "1" : "0") + ";"
+        parms += "&alarmSet"  + dy + "=" + (set[dy].checked ? "1" : "0") + ";"
     }
-    $.ajax({"url": "setAlarm?" + parms, "success": alarmSuccess, "error": ajaxError});
+    fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
+    .then(alarmSuccess);
 }
 
-function saveSettings() {
-    var parms = "volume=" + $("#volume").val();
-    parms += "&melody=" + encodeURIComponent($("#melody").val());
-    parms += "&tz=" + encodeURIComponent($("#tz").val());
-    $.ajax({"url": "saveSettings?" + parms, "success": settingsSuccess, "error": ajaxError});
+// NOTE: calls same endpoint as setAlarm -- even though we're only supplying some of the information
+function saveSettings () {
+    var parms = "volume=" + volume.value;
+    parms += "&melody=" + encodeURIComponent(melody.value);
+    parms += "&tz=" + encodeURIComponent(tz.value);
+    fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
+    .then(alarmSuccess);
 }
 
-function alarmSuccess (data, status) {
-    $("#status").html("Settings saved");
-    console.log("setAlarm ajax success: data=" + data + ", status=" + status);
-    window.setTimeout(function(){ $("#status").html("Saved") }, 5000);
+function alarmSuccess () {
+    statusMsg.textContent = "Settings saved";
+    window.setTimeout(function(){ statusMsg.textContent = ""; }, 5000);
     getAlarm();	// update values (in case server constrained results)
-}
+ }
 
 function settingsSuccess (data, status) {
-    $("#status").html("Settings saved");
-    console.log("setAlarm ajax success: data=" + data + ", status=" + status);
-    window.setTimeout(function(){ $("#status").html("Saved") }, 5000);
+    statusMsg.textContent = "Settings saved";
+    console.log("setAlarm ajax success: data=" + data + ", statusMsg=" + status);
+    window.setTimeout(function(){ statusMsg.textContent = ""; }, 5000);
     getSettings();	// update values (in case server constrained results)
 }
 
-function ajaxError (data, status) {
-    $("#status").html("ERROR! data=" + data + ", status=" + status);
-    window.setTimeout(function(){ $("#status").html("Failed") }, 5000);
-    //getAlarm();	// update values (in case server constrained results)
-}
-
-function displayAlarm(data) {
-    var obj = JSON.parse(data);
-    //console.log("displayAlarm got %s i.e. %s", data, obj);
+function displayAlarm (json) {
     for (var dy = 0; dy < 7; dy++) {
-        $("#time"+dy).val(obj["alarmDay"][dy]["alarmTime"]);
-        let alarmSet = obj["alarmDay"][dy]["alarmSet"] == "1";
-        $("#set"+dy).prop("checked", alarmSet);
+        time[dy].value = json["alarmDay"][dy]["alarmTime"];
+        set[dy].checked = (json["alarmDay"][dy]["alarmSet"] == "1");
     }
-}
+ }
 
-function displaySettings(data) {
-    var obj = JSON.parse(data);
-    //console.log("displaySettings got %s i.e. %s", data, obj);
-    $("#volume").val(obj["volume"]);
-    $("#volumeOutput").text(obj["volume"]);
-    $("#melody").val(obj["melody"]);
-    $("#tz").val(obj["tz"]);
-    volumeOutput.textContent = volume.value;
+function displaySettings (json) {
+    //var json = JSON.parse(data);
+    //console.log("displaySettings got %s i.e. %s", data, json);
+    volume.value = json["volume"];
+    volumeOutput.textContent = json["volume"];
+    melody.value = json["melody"];
+    tz.value = json["tz"];
 }
 
 function getAlarm(){
-    $.ajax({"url": "getAlarm",
-            "success": displayAlarm});
+    fetch("/getAlarm")
+    .then(response => response.json())
+    .then((json) => {
+        if (window.location.pathname == "/") {
+            displayAlarm(json);
+        } else {
+            displaySettings(json);
+        }
+    });
 }
 
 function getSettings(){
-    $.ajax({"url": "getSettings",
-            "success": displaySettings});
+    fetch("/getSettings")
+    .then(response => response.json())
+    .then(displaySettings);
 }
 
-
 function getData() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("ADCValue").innerHTML = this.responseText;
-        }
-    };
-    xhttp.open("GET", "readADC", true);
-    xhttp.send();
+    fetch("/readADC")
+    .then(response => response.text())
+    .then(text => {
+        adcValue.textContent = text;
+    });
 }
 
 function getWiFi() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("WiFiValue").innerHTML = this.responseText;
-        }
-    };
-    xhttp.open("GET", "getWiFi", true);
-    xhttp.send();
+    fetch("/getWiFi")
+    .then(response => response.text())
+    .then(text => {
+        wifiValue.textContent = text;
+    });
 }
 
 function getTime() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("currentTime").innerHTML = this.responseText;
-        }
-    };
-    xhttp.open("GET", "getTime", true);
-    xhttp.send();
+    fetch("/getTime")
+    .then(response => response.text())
+    .then(text => {
+        currentTime.textContent = text;
+    });
 }
 
-$(document).ready(function() {
+window.onload = function () {
 
-    const saveAlarmButton = document.getElementById('saveAlarm');
-    const saveSettingsButton = document.getElementById('saveSettings');
-    const volumeInput  = document.querySelector('#volume');
-    const volumeOutput = document.querySelector('#volumeOutput');
+    const id = document.getElementById.bind(document);
+    const cname = document.getElementsByClassName.bind(document);
+
+    volume = id("volume");
+    volumeOutput = id("volumeOutput");
+    melody = id("melody");
+    tz = id("tz");
+    statusMsg = id("statusMsg");
+    saveAlarmButton = id("saveAlarm");
+    saveSettingsButton = id("saveSettings");
+    adcValue = id("ADCValue");
+    wifiValue = id("WiFiValue");
+    currentTime = id("currentTime");
+    for (let i = 0; i < 7; i++) {
+        time[i] = id("time" + i);
+        set[i] = id("set" + i);
+    }
 
     getWiFi();
     getData();
@@ -117,25 +125,23 @@ $(document).ready(function() {
         getAlarm();
         getTime();
         saveAlarmButton.addEventListener("click", saveAlarm);
-        setInterval(function() {
-            getData();
-            getWiFi();
-            getTime();
-        }, 2000);
+        // TEMP !! setInterval(function() {
+        //    getData();
+        //    getWiFi();
+        //    getTime();
+        //}, 2000);
     } else {
-        volumeOutput.textContent = volumeInput.value;
-        volumeInput.addEventListener('input', function() {
-            //const parms = "volume=" + volume.value.toString();
-            //$.ajax({"url": "setvolume?" + parms, "success": setVolume, "error": ajaxError});
+        volumeOutput.textContent = volume.value;
+        volume.addEventListener('input', function() {
             volumeOutput.textContent = volume.value;
         });
         getSettings();
         saveSettingsButton.addEventListener("click", saveSettings);
-        setInterval(function() {
-            getData();
-            getWiFi();
-        }, 2000);
+        // TEMP !! setInterval(function() {
+        //    getData();
+        //    getWiFi();
+        //}, 2000);
     }
 
-});
+}
 )=====";
