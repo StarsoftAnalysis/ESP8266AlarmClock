@@ -15,16 +15,23 @@ function saveAlarm() {
         parms += "&alarmTime" + dy + "=" + alarmTime + ";";
         parms += "&alarmSet"  + dy + "=" + (set[dy].checked ? "1" : "0") + ";"
     }
-    fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
+    //fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
+    fetch("/setAlarm?" + parms, { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
     .then(alarmSuccess);
 }
 
 // NOTE: calls same endpoint as setAlarm -- even though we're only supplying some of the information
+// TODO: JSON or like this:
+// fetch('https://example.com?' + new URLSearchParams({
+//     foo: 'value',
+//     bar: 2,
+// }))
 function saveSettings () {
     var parms = "volume=" + volume.value;
     parms += "&melody=" + encodeURIComponent(melody.value);
     parms += "&tz=" + encodeURIComponent(tz.value);
-    fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
+    //fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
+    fetch("/setAlarm?" + parms, { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
     .then(alarmSuccess);
 }
 

@@ -262,27 +262,27 @@ void handleSetAlarm() {
     }
     webActive = true;
 
-    config_t newConfig;
+    config_t newConfig = config;
     bool melodyChanged = false;
 
-    //Serial.println("hSA: args: ");
+    Serial.println("hSA: args: ");
     for (int i = 0; i < server.args(); i++) {
-        //Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
+        Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
         if (server.argName(i).substring(0,9) == "alarmTime") {
-            //Serial.printf("\t\tdaystring = %s\n", server.argName(i).substring(9).c_str());
+            Serial.printf("\t\tdaystring = %s\n", server.argName(i).substring(9).c_str());
             int dy = constrain(server.argName(i).substring(9).toInt(), 0, 6);  // returns 0 on error!
             String alarmTime = server.arg(i);
             int indexOfColon = alarmTime.indexOf(":");
             int alarmHour = constrain(alarmTime.substring(0, indexOfColon).toInt(), 0, 23);
             int alarmMinute = constrain(alarmTime.substring(indexOfColon + 1).toInt(), 0, 59);
-            //Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
+            Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
             newConfig.alarmDay[dy].hour = alarmHour;
             newConfig.alarmDay[dy].minute = alarmMinute;
         } else if (server.argName(i).substring(0,8) == "alarmSet") {
-            //Serial.printf("\t\tdaystring = %s   %s\n", server.argName(i).c_str(), server.argName(i).substring(8).c_str());
+            Serial.printf("\t\tdaystring = %s   %s\n", server.argName(i).c_str(), server.argName(i).substring(8).c_str());
             int dy = constrain(server.argName(i).substring(8).toInt(), 0, 6);  // returns 0 on error!
             bool alarmSet = (server.arg(i) == "1");
-            //Serial.printf("\t\td=%d  %s\n", dy, alarmSet ? "y" : "n");
+            Serial.printf("\t\td=%d  %s\n", dy, alarmSet ? "y" : "n");
             newConfig.alarmDay[dy].set = alarmSet;
         } else if (server.argName(i) == "volume") {
             newConfig.volume = e8rtp::setVolume(server.arg(i).toInt()); // returns validated value
@@ -307,6 +307,8 @@ void handleSetAlarm() {
     }
 
     storeConfig(&newConfig);    // also copies newConfig to config
+//FIXME if unexpected stuff sent, return non-200
+// FIXME separate settings and alarm?
     server.send(200, "text/html", "Alarm Set");
     webActive = false;
 }
