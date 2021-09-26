@@ -1,12 +1,16 @@
 const char js[] PROGMEM = R"=====(
 
 
-// FIXME !  saving alarm/settings needs to take priority over getData -- make it wait 5 seconds for fetching to be available
+// FIXME !  saving alarm/settings needs to take priority over getData -- make it wait 5 seconds for fetching to be available  - show '...' while waiting
  
 // Fields by id   TODO how does vplot do it now?
 let volume, volumeOutput, melody, tz, statusMsg, saveAlarmButton, saveSettingsButton, adcValue, wifiValue, currentTime;
 let time = [];
 let set = [];
+
+const fetchTimeout = 5000;
+const fetchWaitTimeout = 10000;
+const msgFadeTime = 5000;
 
 // Flag to make sure only one 'fetch' is active at a time
 let fetchingTimer = 0;
@@ -21,7 +25,7 @@ function alreadyFetching (label) {
     fetchingTimer = setTimeout(function() { 
         console.log("fetch timed out in", label); 
         fetchingDone("timeout"); 
-    }, 5000);
+    }, fetchTimeout);
     console.log(label, "fetchingTimer =", fetchingTimer);
     return false;
 }
@@ -32,10 +36,36 @@ function fetchingDone (label) {
     fetchingTimer = 0;
 }
 
+
+
+// Check if somethingi's already fetching, and wait for a while if so.
+// Return true if fetching is still happening.
+function waitFetching (label, waitTime) {
+    if (fetchingTimer) {
+        statusMsg.textContent = '...';
+        document.body.style.cursor = 'wait';
+        startTime = Date.now();
+        // FAIL!! fetchingTime won't update in a loop; how to get a return flag if we recurse via setTimeout?? 
+        //if (fetchingTimer && (Date.now() - startTime < fetchWaitTimeout)) {
+        //    setTimeout(waitFetching, 0, label, );  
+        //}
+        while (fetchingTimer && (Date.now() - startTime < fetchWaitTimeout)) {}
+        if (fetchingTimer) {
+            // Still waiting - fail
+            statusMsg.textContent = 'Timed out waiting';
+            document.body.style.cursor = '';
+            return true;
+        }
+        statusMsg.textContent = '';
+        document.body.style.cursor = '';
+        // Check again, and set timer for our fetch 
+        return alreadyFetching(label);
+    }
+    return false;
+}
+
 function saveAlarm() {
-
-    if (alreadyFetching("saveAlarm")) return;
-
+    if (waitFetching("saveAlarm")) return;
     var parms = "";
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
@@ -48,7 +78,6 @@ function saveAlarm() {
     //fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
     fetch("/setAlarm?" + parms) // , { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
     .then(alarmSuccess);
-
 }
 
 // NOTE: calls same endpoint as setAlarm -- even though we're only supplying some of the information
@@ -58,6 +87,7 @@ function saveAlarm() {
 //     bar: 2,
 // }))
 function saveSettings () {
+    if (waitFetching("saveSettings")) return;
     var parms = "volume=" + volume.value;
     parms += "&melody=" + encodeURIComponent(melody.value);
     parms += "&tz=" + encodeURIComponent(tz.value);
@@ -69,14 +99,14 @@ function saveSettings () {
 function alarmSuccess () {
     statusMsg.textContent = "Settings saved";
     fetchingDone("alarmSuccess");
-    window.setTimeout(function(){ statusMsg.textContent = ""; }, 5000);
+    window.setTimeout(function(){ statusMsg.textContent = ""; }, msgFadeTime);
     getAlarm();	// update values (in case server constrained results)
  }
 
 function settingsSuccess (data, status) {
     statusMsg.textContent = "Settings saved";
     console.log("setAlarm ajax success: data=" + data + ", statusMsg=" + status);
-    window.setTimeout(function(){ statusMsg.textContent = ""; }, 5000);
+    window.setTimeout(function(){ statusMsg.textContent = ""; }, msgFadeTime);
     getSettings();	// update values (in case server constrained results)
 }
 
