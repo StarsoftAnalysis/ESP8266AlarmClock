@@ -55,7 +55,6 @@
 // * use #defines to set e.g. SNOOZE = LBUTTON etc. for ease of customisation
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
-// * async web server?? or more consistent use of webActive??
 // * button functions --  'config' more
 //   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
@@ -68,6 +67,7 @@
 // * maybe use bool ezt's secondChanged() to display the time less often - no, frequent updates are good
 // * test RTTTL by playing it???  No -- give a link to a site to test it https://adamonsoon.github.io/rtttl-play/
 // DONE
+// * async web server?? or more consistent use of webActive??
 // * off completely if ldr < min -- not just on level
 // * colon if seconds % 2
 // * get rid if mdNS stuff
@@ -253,14 +253,7 @@ void handleTime() {
     server.send(200, "text/plain", time);
 }
 
-static bool webActive = false;
 void handleSetAlarm() {
-    // single threaded
-    if (webActive) {
-        server.send(503, "text/html", "busy - single threaded");
-        return;
-    }
-    webActive = true;
 
     config_t newConfig = config;
     bool melodyChanged = false;
@@ -308,18 +301,12 @@ void handleSetAlarm() {
 
     storeConfig(&newConfig);    // also copies newConfig to config
 //FIXME if unexpected stuff sent, return non-200
+// FIXME supply sensible defaults e.g. to melody
 // FIXME separate settings and alarm?
     server.send(200, "text/html", "Alarm Set");
-    webActive = false;
 }
 
 void handleGetAlarm() {
-    // single threaded
-    if (webActive) {
-        server.send(503, "text/html", "busy - single threaded");
-        return;
-    }
-    webActive = true;
 
     DynamicJsonDocument json(2000); // FIXME tune this
 
@@ -337,16 +324,9 @@ void handleGetAlarm() {
     Serial.printf("hGA: sending %s\n", s.c_str());
     server.send(200, "text/plain", s);
 
-    webActive = false;
 }
 
 void handleGetSettings() {
-    // single threaded
-    if (webActive) {
-        server.send(503, "text/html", "busy - single threaded");
-        return;
-    }
-    webActive = true;
 
     DynamicJsonDocument json(2000); // FIXME tune this
 
@@ -359,7 +339,6 @@ void handleGetSettings() {
     Serial.printf("hGA: sending %s\n", s.c_str());
     server.send(200, "text/plain", s);
 
-    webActive = false;
 }
 
 void configModeCallback (WiFiManager *myWiFiManager) {

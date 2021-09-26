@@ -5,7 +5,34 @@ let volume, volumeOutput, melody, tz, statusMsg, saveAlarmButton, saveSettingsBu
 let time = [];
 let set = [];
 
+// Flag to make sure only one 'fetch' is active at a time
+let fetchingTimer = 0;
+
+// Check that fetching is not already happening, and 
+// initialise the timer.
+function alreadyFetching (label) {
+    if (fetchingTimer) {
+        console.log("Already fetching in", label);
+        return true;
+    }
+    fetchingTimer = setTimeout(function() { 
+        console.log("fetch timed out in", label); 
+        fetchingDone("timeout"); 
+    }, 5000);
+    console.log(label, "fetchingTimer =", fetchingTimer);
+    return false;
+}
+
+function fetchingDone (label) {
+    console.log("fetchingDone for %s, t=%d", label, fetchingTimer);
+    clearTimeout(fetchingTimer);
+    fetchingTimer = 0;
+}
+
 function saveAlarm() {
+
+    if (alreadyFetching("saveAlarm")) return;
+
     var parms = "";
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
@@ -16,8 +43,9 @@ function saveAlarm() {
         parms += "&alarmSet"  + dy + "=" + (set[dy].checked ? "1" : "0") + ";"
     }
     //fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
-    fetch("/setAlarm?" + parms, { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
+    fetch("/setAlarm?" + parms) // , { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
     .then(alarmSuccess);
+
 }
 
 // NOTE: calls same endpoint as setAlarm -- even though we're only supplying some of the information
@@ -37,6 +65,7 @@ function saveSettings () {
 
 function alarmSuccess () {
     statusMsg.textContent = "Settings saved";
+    fetchingDone("alarmSuccess");
     window.setTimeout(function(){ statusMsg.textContent = ""; }, 5000);
     getAlarm();	// update values (in case server constrained results)
  }
@@ -64,10 +93,13 @@ function displaySettings (json) {
     tz.value = json["tz"];
 }
 
+// FIXME separate alarm and settings
 function getAlarm(){
+    if (alreadyFetching("getAlarm")) return;
     fetch("/getAlarm")
     .then(response => response.json())
     .then((json) => {
+        fetchingDone("getAlarm");
         if (window.location.pathname == "/") {
             displayAlarm(json);
         } else {
@@ -77,31 +109,41 @@ function getAlarm(){
 }
 
 function getSettings(){
+    if (alreadyFetching("getSettings")) return;
     fetch("/getSettings")
     .then(response => response.json())
-    .then(displaySettings);
+    .then((json) => {
+        fetchingDone("getSettings");
+        displaySettings(json);
+    });
 }
 
 function getData() {
+    if (alreadyFetching("getData")) return;
     fetch("/readADC")
     .then(response => response.text())
     .then(text => {
+        fetchingDone("getData");
         adcValue.textContent = text;
     });
 }
 
 function getWiFi() {
+    if (alreadyFetching("getWiFi")) return;
     fetch("/getWiFi")
     .then(response => response.text())
     .then(text => {
+        fetchingDone("getWiFi");
         wifiValue.textContent = text;
     });
 }
 
 function getTime() {
+    if (alreadyFetching("getTime")) return;
     fetch("/getTime")
     .then(response => response.text())
     .then(text => {
+        fetchingDone("getTime");
         currentTime.textContent = text;
     });
 }
@@ -126,17 +168,17 @@ window.onload = function () {
         set[i] = id("set" + i);
     }
 
-    getWiFi();
-    getData();
+    //getWiFi();
+    //getData();
     if (window.location.pathname == "/") {
         getAlarm();
         getTime();
         saveAlarmButton.addEventListener("click", saveAlarm);
-        // TEMP !! setInterval(function() {
-        //    getData();
-        //    getWiFi();
-        //    getTime();
-        //}, 2000);
+        setInterval(function() {
+            getData();
+            getWiFi();
+            getTime();
+        }, 2000);
     } else {
         volumeOutput.textContent = volume.value;
         volume.addEventListener('input', function() {
@@ -144,10 +186,10 @@ window.onload = function () {
         });
         getSettings();
         saveSettingsButton.addEventListener("click", saveSettings);
-        // TEMP !! setInterval(function() {
-        //    getData();
-        //    getWiFi();
-        //}, 2000);
+        setInterval(function() {
+            getData();
+            getWiFi();
+        }, 2000);
     }
 
 }
