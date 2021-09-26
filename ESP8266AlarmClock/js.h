@@ -1,4 +1,7 @@
 const char js[] PROGMEM = R"=====(
+
+
+// FIXME !  saving alarm/settings needs to take priority over getData -- make it wait 5 seconds for fetching to be available
  
 // Fields by id   TODO how does vplot do it now?
 let volume, volumeOutput, melody, tz, statusMsg, saveAlarmButton, saveSettingsButton, adcValue, wifiValue, currentTime;
@@ -120,14 +123,17 @@ function getSettings(){
 
 function getData() {
     if (alreadyFetching("getData")) return;
-    fetch("/readADC")
-    .then(response => response.text())
-    .then(text => {
+    fetch("/getData")
+    .then(response => response.json())
+    .then((json) => {
         fetchingDone("getData");
-        adcValue.textContent = text;
+        adcValue.textContent = json.lightLevel;
+        wifiValue.textContent = json.wifiQuality;
+        currentTime.textContent = json.time;
     });
 }
 
+/*
 function getWiFi() {
     if (alreadyFetching("getWiFi")) return;
     fetch("/getWiFi")
@@ -147,6 +153,7 @@ function getTime() {
         currentTime.textContent = text;
     });
 }
+*/
 
 window.onload = function () {
 
@@ -168,17 +175,9 @@ window.onload = function () {
         set[i] = id("set" + i);
     }
 
-    //getWiFi();
-    //getData();
     if (window.location.pathname == "/") {
         getAlarm();
-        getTime();
         saveAlarmButton.addEventListener("click", saveAlarm);
-        setInterval(function() {
-            getData();
-            getWiFi();
-            getTime();
-        }, 2000);
     } else {
         volumeOutput.textContent = volume.value;
         volume.addEventListener('input', function() {
@@ -186,11 +185,10 @@ window.onload = function () {
         });
         getSettings();
         saveSettingsButton.addEventListener("click", saveSettings);
-        setInterval(function() {
-            getData();
-            getWiFi();
-        }, 2000);
     }
+    setInterval(function() {
+        getData();
+    }, 2000);
 
 }
 )=====";

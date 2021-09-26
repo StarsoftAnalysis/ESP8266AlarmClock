@@ -230,15 +230,27 @@ void handleNotFound() {
     server.send(404, "text/plain", message);
 }
 
-void handleADC() {
+void handleGetData () {
+    // Light level
     int a = analogRead(LDR_PIN);
-    //String adcValue = String(a);
-    char buffer[8];  
-    snprintf(buffer, sizeof(buffer), "%d", a);
-    //PRINTF("Sending ADC value length %d\n", strlen(buffer));
-    server.send(200, "text/plain", buffer);
+    // WiFi signal
+    int rssi = getWifiQuality();
+    // Current time
+    String time = TZ.dateTime("H:i");
+
+    DynamicJsonDocument json(512); // FIXME tune this
+
+    json["lightLevel"] = String(a);
+    json["wifiQuality"] = String(rssi);
+    json["time"] = String(time);
+
+    String s;
+    serializeJson(json, s);
+    Serial.printf("hGD: sending %s\n", s.c_str());
+    server.send(200, "text/plain", s);
 }
 
+/*
 void handleWiFi() {
     int rssi = getWifiQuality();
     //String rssiValue = String(rssi);
@@ -252,6 +264,7 @@ void handleTime() {
     String time = TZ.dateTime("H:i");
     server.send(200, "text/plain", time);
 }
+*/
 
 void handleSetAlarm() {
 
@@ -656,10 +669,7 @@ void setup() {
     server.on("/setAlarm", handleSetAlarm);
     server.on("/getAlarm", handleGetAlarm);
     server.on("/getSettings", handleGetSettings);
-    //server.on("/deleteAlarm", handleDeleteAlarm);
-    server.on("/getWiFi", handleWiFi);
-    server.on("/readADC", handleADC);
-    server.on("/getTime", handleTime);
+    server.on("/getData", handleGetData);
     server.onNotFound(handleNotFound);
     server.begin();
     Serial.println("HTTP Server Started");
