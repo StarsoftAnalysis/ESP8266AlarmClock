@@ -246,7 +246,7 @@ void handleGetData () {
 
     String s;
     serializeJson(json, s);
-    Serial.printf("hGD: sending %s\n", s.c_str());
+    //Serial.printf("hGD: sending %s\n", s.c_str());
     server.send(200, "text/plain", s);
 }
 

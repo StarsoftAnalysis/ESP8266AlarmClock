@@ -36,36 +36,27 @@ function fetchingDone (label) {
     fetchingTimer = 0;
 }
 
-
-
-// Check if somethingi's already fetching, and wait for a while if so.
-// Return true if fetching is still happening.
-function waitFetching (label, waitTime) {
-    if (fetchingTimer) {
+function showWaiting (flag) {
+    if (flag) {
         statusMsg.textContent = '...';
         document.body.style.cursor = 'wait';
-        startTime = Date.now();
-        // FAIL!! fetchingTime won't update in a loop; how to get a return flag if we recurse via setTimeout?? 
-        //if (fetchingTimer && (Date.now() - startTime < fetchWaitTimeout)) {
-        //    setTimeout(waitFetching, 0, label, );  
-        //}
-        while (fetchingTimer && (Date.now() - startTime < fetchWaitTimeout)) {}
-        if (fetchingTimer) {
-            // Still waiting - fail
-            statusMsg.textContent = 'Timed out waiting';
-            document.body.style.cursor = '';
-            return true;
-        }
+    } else {
         statusMsg.textContent = '';
         document.body.style.cursor = '';
-        // Check again, and set timer for our fetch 
-        return alreadyFetching(label);
     }
-    return false;
 }
 
 function saveAlarm() {
-    if (waitFetching("saveAlarm")) return;
+
+    if (fetchingTimer) {
+        showWaiting(true);
+        // Try again in a moment
+        setTimeout(saveAlarm, 0);
+        return;
+    }
+    alreadyFetching("saveAlarm");   // no need to check return code
+    showWaiting(false);
+
     var parms = "";
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
@@ -87,7 +78,14 @@ function saveAlarm() {
 //     bar: 2,
 // }))
 function saveSettings () {
-    if (waitFetching("saveSettings")) return;
+    if (fetchingTimer) {
+        showWaiting(true);
+        // Try again in a moment
+        setTimeout(saveAlarm, 0);
+        return;
+    }
+    alreadyFetching("saveSettings");   // no need to check return code
+    showWaiting(false);
     var parms = "volume=" + volume.value;
     parms += "&melody=" + encodeURIComponent(melody.value);
     parms += "&tz=" + encodeURIComponent(tz.value);
@@ -159,7 +157,9 @@ function getData() {
         fetchingDone("getData");
         adcValue.textContent = json.lightLevel;
         wifiValue.textContent = json.wifiQuality;
-        currentTime.textContent = json.time;
+        if (currentTime) {
+            currentTime.textContent = json.time;
+        }
     });
 }
 
