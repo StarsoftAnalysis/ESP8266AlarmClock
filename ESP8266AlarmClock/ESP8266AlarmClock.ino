@@ -250,57 +250,56 @@ void handleGetData () {
     server.send(200, "text/plain", s);
 }
 
-/*
-void handleWiFi() {
-    int rssi = getWifiQuality();
-    //String rssiValue = String(rssi);
-    char buffer[8];  
-    snprintf(buffer, sizeof(buffer), "%d", rssi);
-    //PRINTF("Sending WiFi value length %d\n", strlen(buffer));
-    server.send(200, "text/plain", buffer);
-}
-
-void handleTime() {
-    String time = TZ.dateTime("H:i");
-    server.send(200, "text/plain", time);
-}
-*/
-
 void handleSetAlarm() {
 
-    config_t newConfig = config;
-    bool melodyChanged = false;
+    config_t newConfig = config;    // copy old config
 
-    Serial.println("hSA: args: ");
-    for (int i = 0; i < server.args(); i++) {
-        Serial.printf("\t%d: %s = %s\n", i, server.argName(i).c_str(), server.arg(i).c_str());
-        if (server.argName(i).substring(0,9) == "alarmTime") {
-            Serial.printf("\t\tdaystring = %s\n", server.argName(i).substring(9).c_str());
-            int dy = constrain(server.argName(i).substring(9).toInt(), 0, 6);  // returns 0 on error!
-            String alarmTime = server.arg(i);
-            int indexOfColon = alarmTime.indexOf(":");
-            int alarmHour = constrain(alarmTime.substring(0, indexOfColon).toInt(), 0, 23);
-            int alarmMinute = constrain(alarmTime.substring(indexOfColon + 1).toInt(), 0, 59);
-            Serial.printf("\t\td=%d  %d:%d\n", dy, alarmHour, alarmMinute);
-            newConfig.alarmDay[dy].hour = alarmHour;
-            newConfig.alarmDay[dy].minute = alarmMinute;
-        } else if (server.argName(i).substring(0,8) == "alarmSet") {
-            Serial.printf("\t\tdaystring = %s   %s\n", server.argName(i).c_str(), server.argName(i).substring(8).c_str());
-            int dy = constrain(server.argName(i).substring(8).toInt(), 0, 6);  // returns 0 on error!
-            bool alarmSet = (server.arg(i) == "1");
-            Serial.printf("\t\td=%d  %s\n", dy, alarmSet ? "y" : "n");
-            newConfig.alarmDay[dy].set = alarmSet;
-        } else if (server.argName(i) == "volume") {
-            newConfig.volume = e8rtp::setVolume(server.arg(i).toInt()); // returns validated value
-        } else if (server.argName(i) == "melody") {
-            melodyChanged = (strcmp(newConfig.melody, server.arg(i).substring(0, MELODY_MAX-1).c_str()) == 0);
-            strlcpy(newConfig.melody, server.arg(i).substring(0, MELODY_MAX-1).c_str(), MELODY_MAX);
-        } else if (server.argName(i) == "tz") {
-            strlcpy(newConfig.tz, server.arg(i).substring(0, MELODY_MAX-1).c_str(), TZ_MAX);
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, server.arg("plain"));   // body
+    //Serial.println("hSA: args: ", server.arg("plain").c_str());
+
+    // Test for existence to avoid losing old values
+    if (doc.containsKey("alarmTime")) {
+        for (int i = 0; i < 7; i++) {
+            String time = doc["alarmTime"][i];
+            int indexOfColon = time.indexOf(":");
+            newConfig.alarmDay[i].hour   = constrain(time.substring(0,indexOfColon).toInt(), 0, 23);
+            newConfig.alarmDay[i].minute = constrain(time.substring(indexOfColon+1).toInt(), 0, 59);
         }
     }
+    if (doc.containsKey("alarmSet")) {
+        for (int i = 0; i < 7; i++) {
+            newConfig.alarmDay[i].set = (doc["alarmSet"][i] == "1");
+        }
+    }
+    storeConfig(&newConfig);    // also copies newConfig to config
 
-    if (melodyChanged) {
+    // FIXME if unexpected stuff sent, return non-200
+    // FIXME supply sensible defaults e.g. to melody
+    server.send(200, "text/html", "OK");
+}
+
+void handleSetSettings() {
+
+    config_t newConfig = config;    // copy old config
+
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, server.arg("plain"));   // body
+    //Serial.println("hGA: args: ", server.arg("plain"));
+
+    // Test for existence to avoid losing old values
+    if (doc.containsKey("volume")) {
+        newConfig.volume = doc["volume"];
+    }
+    if (doc.containsKey("melody")) {
+        strlcpy(newConfig.melody, doc["melody"], MELODY_MAX);
+    }
+    if (doc.containsKey("tz")) {
+        strlcpy(newConfig.tz, doc["tz"], TZ_MAX);
+    }
+
+    // Play the new melody if it's changed
+    if (strcmp(newConfig.melody, config.melody) == 0) {
         if (e8rtp::state() == e8rtp::Playing) {
             e8rtp::stop();
         }
@@ -313,15 +312,14 @@ void handleSetAlarm() {
     }
 
     storeConfig(&newConfig);    // also copies newConfig to config
-//FIXME if unexpected stuff sent, return non-200
-// FIXME supply sensible defaults e.g. to melody
-// FIXME separate settings and alarm?
-    server.send(200, "text/html", "Alarm Set");
+    //FIXME if unexpected stuff sent, return non-200
+    // FIXME supply sensible defaults e.g. to melody
+    server.send(200, "text/html", "OK");
 }
 
 void handleGetAlarm() {
 
-    DynamicJsonDocument json(2000); // FIXME tune this
+    DynamicJsonDocument json(1000); // FIXME tune this
 
     JsonArray days = json.createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
@@ -341,7 +339,7 @@ void handleGetAlarm() {
 
 void handleGetSettings() {
 
-    DynamicJsonDocument json(2000); // FIXME tune this
+    DynamicJsonDocument json(512); // FIXME tune this
 
     json["volume"] = config.volume;
     json["melody"] = String(config.melody);
@@ -349,7 +347,7 @@ void handleGetSettings() {
 
     String s;
     serializeJson(json, s);
-    Serial.printf("hGA: sending %s\n", s.c_str());
+    Serial.printf("hGS: sending %s\n", s.c_str());
     server.send(200, "text/plain", s);
 
 }
@@ -668,6 +666,7 @@ void setup() {
     server.on("/js", handleJS);
     server.on("/setAlarm", handleSetAlarm);
     server.on("/getAlarm", handleGetAlarm);
+    server.on("/setSettings", handleSetSettings);
     server.on("/getSettings", handleGetSettings);
     server.on("/getData", handleGetData);
     server.onNotFound(handleNotFound);

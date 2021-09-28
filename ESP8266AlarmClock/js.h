@@ -57,40 +57,24 @@ function saveAlarm() {
     alreadyFetching("saveAlarm");   // no need to check return code
     showWaiting(false);
 
-    var parms = "";
+    //var parms = "";
+    const jsonObject = { 
+        alarmTime: [],
+        alarmSet: [],
+    };
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
         if (!alarmTime) {
             alarmTime = "00:00";
         }
-        parms += "&alarmTime" + dy + "=" + alarmTime + ";";
-        parms += "&alarmSet"  + dy + "=" + (set[dy].checked ? "1" : "0") + ";"
+        //parms += "&alarmTime" + dy + "=" + alarmTime + ";";
+        //parms += "&alarmSet"  + dy + "=" + (set[dy].checked ? "1" : "0") + ";"
+        jsonObject.alarmTime[dy] = alarmTime;
+        jsonObject.alarmSet[dy] = (set[dy].checked ? "1" : "0"); 
     }
-    //fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
-    fetch("/setAlarm?" + parms) // , { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
-    .then(alarmSuccess);
-}
-
-// NOTE: calls same endpoint as setAlarm -- even though we're only supplying some of the information
-// TODO: JSON or like this:
-// fetch('https://example.com?' + new URLSearchParams({
-//     foo: 'value',
-//     bar: 2,
-// }))
-function saveSettings () {
-    if (fetchingTimer) {
-        showWaiting(true);
-        // Try again in a moment
-        setTimeout(saveAlarm, 0);
-        return;
-    }
-    alreadyFetching("saveSettings");   // no need to check return code
-    showWaiting(false);
-    var parms = "volume=" + volume.value;
-    parms += "&melody=" + encodeURIComponent(melody.value);
-    parms += "&tz=" + encodeURIComponent(tz.value);
-    //fetch("/setAlarm", { method: 'POST', body: parms, headers: { 'Content-Type': 'text/plain' } })
-    fetch("/setAlarm?" + parms, { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
+    
+    fetch("/setAlarm", { method: 'POST', body: JSON.stringify(jsonObject), headers: { 'Content-Type': 'application/json' } })
+    //fetch("/setAlarm?" + parms) // , { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
     .then(alarmSuccess);
 }
 
@@ -101,9 +85,26 @@ function alarmSuccess () {
     getAlarm();	// update values (in case server constrained results)
  }
 
+function saveSettings () {
+    if (fetchingTimer) {
+        showWaiting(true);
+        // Try again in a moment
+        setTimeout(saveSettings, 0);
+        return;
+    }
+    alreadyFetching("saveSettings");   // no need to check return code
+    showWaiting(false);
+    const jsonObject = {
+        melody: melody.value,
+        volume: volume.value,
+        tz: tz.value,
+    }
+    fetch("/setSettings", { method: 'POST', body: JSON.stringify(jsonObject), headers: { 'Content-Type': 'application/json' } })
+    .then(settingsSuccess);
+}
+
 function settingsSuccess (data, status) {
     statusMsg.textContent = "Settings saved";
-    console.log("setAlarm ajax success: data=" + data + ", statusMsg=" + status);
     window.setTimeout(function(){ statusMsg.textContent = ""; }, msgFadeTime);
     getSettings();	// update values (in case server constrained results)
 }
