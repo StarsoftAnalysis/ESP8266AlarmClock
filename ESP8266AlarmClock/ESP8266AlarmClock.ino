@@ -147,6 +147,11 @@
 #include "settingspage.h"
 // Defines "const char js[]":
 #include "js.h"
+// Bootstrap 5 CSS and JS
+// Defines "chost char bootstrapcss[]":
+#include "bootstrap.min.css.h"
+// Defines "chost char bootstrapjs[]":
+#include "bootstrap.bundle.min.js.h"
 
 // -----------------------------
 
@@ -221,7 +226,13 @@ void handleSettings() {
 }
 void handleJS() {
     PRINTF("Sending '/js' length %d\n", strlen_P(js));
-    server.send(200, "text/html", js);
+    server.send(200, "text/javascript", js);
+}
+void handleBootstrapJS() {
+    server.send(200, "text/javascript", bootstrapjs);
+}
+void handleBootstrapCSS() {
+    server.send(200, "text/css", bootstrapcss);
 }
 
 void handleNotFound() {
@@ -664,6 +675,8 @@ void setup() {
     server.on("/", handleMain);
     server.on("/settings", handleSettings);
     server.on("/js", handleJS);
+    server.on("/bootstrapjs", handleBootstrapJS);
+    server.on("/bootstrapcss", handleBootstrapCSS);
     server.on("/setAlarm", handleSetAlarm);
     server.on("/getAlarm", handleGetAlarm);
     server.on("/setSettings", handleSetSettings);
