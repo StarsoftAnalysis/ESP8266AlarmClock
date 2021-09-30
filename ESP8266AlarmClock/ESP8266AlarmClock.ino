@@ -148,9 +148,9 @@
 // Defines "const char js[]":
 #include "js.h"
 // Bootstrap 5 CSS and JS
-// Defines "chost char bootstrapcss[]":
+// Defines "const char bootstrapcss[]":
 #include "bootstrap.min.css.h"
-// Defines "chost char bootstrapjs[]":
+// Defines "const char bootstrapjs[]":
 #include "bootstrap.bundle.min.js.h"
 
 // -----------------------------
