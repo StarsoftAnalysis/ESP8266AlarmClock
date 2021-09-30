@@ -50,13 +50,41 @@ const char mainpage[] PROGMEM = R"=====(
           <h2 class="mt-3">Set the alarm</h2>
           <table class=table-sm>
             <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
-            <tr><td>Sunday</td><td><input id="time0" type="time" class="form-control" aria-label="Alarm time Sunday"></td><td><input id="set0" class="form-control" type="checkbox" aria-label="Alarm set Sunday"</td></tr> 
-            <tr><td>Monday</td><td><input id="time1" type="time" class="form-control" aria-label="Alarm time Monday"></td><td><input id="set1" class="form-control" type="checkbox" aria-label="Alarm set Monday"</td></tr> 
-            <tr><td>Tuesday</td><td><input id="time2" type="time" class="form-control" aria-label="Alarm time Tuesday"></td><td><input id="set2" class="form-control" type="checkbox" aria-label="Alarm set Tuesday"</td></tr> 
-            <tr><td>Wednesday</td><td><input id="time3" type="time" class="form-control" aria-label="Alarm time Wednesday"></td><td><input id="set3" class="form-control" type="checkbox" aria-label="Alarm set Wednesday"</td></tr> 
-            <tr><td>Thursday</td><td><input id="time4" type="time" class="form-control" aria-label="Alarm time Thursday"></td><td><input id="set4" class="form-control" type="checkbox" aria-label="Alarm set Thursday"</td></tr> 
-            <tr><td>Friday</td><td><input id="time5" type="time" class="form-control" aria-label="Alarm time Friday"></td><td><input id="set5" class="form-control" type="checkbox" aria-label="Alarm set Friday"</td></tr> 
-            <tr><td>Saturday</td><td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td><td><input id="set6" class="form-control" type="checkbox" aria-label="Alarm set Saturday"</td></tr> 
+            <tr>
+                <td><label for="time0" class="form-label">Sunday</label></td>
+                <td><input id="time0" type="time" class="form-control" aria-label="Alarm time Sunday"></td>
+                <td><input id="set0" class="form-check-input" type="checkbox" aria-label="Alarm set Sunday"</td>
+            </tr> 
+            <tr>
+                <td><label for="time1" class="form-label">Monday</label></td>
+                <td><input id="time1" type="time" class="form-control" aria-label="Alarm time Monday"></td>
+                <td><input id="set1" class="form-check-input" type="checkbox" aria-label="Alarm set Monday"</td>
+            </tr> 
+            <tr>
+                <td><label for="time2" class="form-label">Tuesday</label></td>
+                <td><input id="time2" type="time" class="form-control" aria-label="Alarm time Tuesday"></td>
+                <td><input id="set2" class="form-check-input" type="checkbox" aria-label="Alarm set Tuesday"</td>
+            </tr> 
+            <tr>
+                <td><label for="time3" class="form-label">Wednesday</label></td>
+                <td><input id="time3" type="time" class="form-control" aria-label="Alarm time Wednesday"></td>
+                <td><input id="set3" class="form-check-input" type="checkbox" aria-label="Alarm set Wednesday"</td>
+            </tr> 
+            <tr>
+                <td><label for="time4" class="form-label">Thursday</label></td>
+                <td><input id="time4" type="time" class="form-control" aria-label="Alarm time Thursday"></td>
+                <td><input id="set4" class="form-check-input" type="checkbox" aria-label="Alarm set Thursday"</td>
+            </tr> 
+            <tr>
+                <td><label for="time5" class="form-label">Friday</label></td>
+                <td><input id="time5" type="time" class="form-control" aria-label="Alarm time Friday"></td>
+                <td><input id="set5" class="form-check-input" type="checkbox" aria-label="Alarm set Friday"</td>
+            </tr> 
+            <tr>
+                <td><label for="time6" class="form-label">Saturday</label></td>
+                <td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td>
+                <td><input id="set6" class="form-check-input" type="checkbox" aria-label="Alarm set Saturday"</td>
+            </tr> 
           </table>
         </div>
 
@@ -82,11 +110,11 @@ const char mainpage[] PROGMEM = R"=====(
     <div class="container">
       <div class="row">
         <div class="col-sm">
-            <i class='fas fa-fw fa-code-branch'></i> Version: 0.2.0dev<br>
             <i class='fas fa-fw fa-wifi'></i> Signal Strength: <span id="WiFiValue">...</span>%<br>
-            <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">0</span>
+            <i class='fas fa-fw fa-lightbulb'></i> Light level: <span id="ADCValue">...</span>
         </div>
         <div class="col-sm text-left text-sm-right">
+            <i class='fas fa-fw fa-code-branch'></i> Version: 0.2.0dev<br>
             <i class="fab fa-fw fa-github"></i> <a href="https://github.com/starsoftanalysis/ESP8266AlarmClock/" target="_blank">GitHub</a><br>
         </div>
       </div>
