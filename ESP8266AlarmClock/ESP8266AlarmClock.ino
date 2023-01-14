@@ -42,16 +42,18 @@
 // 21/9/21: This is dev branch -- pre-async, new progress from here as 0.2.0...
 
 // TODO:
+// * allow user to set repeat/snooze times etc.
 // * separate 'Settings' web page'
 //   - need to separate .js file and use it for both pages
-// * Maybe use SPIFFS or the new thing -- NO! will break OTA updates -- see https://github.com/jandrassy/ArduinoOTA#esp8266-and-esp32-support
+// * move svgs etc. into a folder
+// * display status e.g. 'Alarm ringing', and 'Time to next alarm' on webpage
 // * make use of PRINTLN vs Serial.println consistent.
 // * if no internet, prompt for manual time setting
+// * cope with losing wifi -- gets stuck on WIFI display
 // * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
 // * more aria labels in html
 // * allow user to set light level for turning display off
-// * allow user to set repeat/snooze times etc.
 // * use #defines to set e.g. SNOOZE = LBUTTON etc. for ease of customisation
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
@@ -60,12 +62,14 @@
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
 // * alarm to get louder gradually
 // * HTTPS? -- see http://www.iotsharing.com/2017/08/how-to-use-https-in-arduino-esp32.html
+
 // NO
 // - use ezTime events to trigger alarm?
 // * store alarm time as minutes since midnight instead of hour/minute
 // * ? define alarms as repeating or one-off.  or separate set of one-off alarms
 // * maybe use bool ezt's secondChanged() to display the time less often - no, frequent updates are good
 // * test RTTTL by playing it???  No -- give a link to a site to test it https://adamonsoon.github.io/rtttl-play/
+
 // DONE
 // * async web server?? or more consistent use of webActive??
 // * off completely if ldr < min -- not just on level
@@ -96,6 +100,8 @@
 // * display sometimes flickers -- depends on light level -- do running average?  maybe it only flickers while uploading software
 // * Updating the tune -- need to do e8rtp re-setup etc.
 // * OTA updates
+// * get rid of OTA updates (to allow async etc.)
+// * allow user to cancel alarm before it goes off
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -120,10 +126,6 @@
 // Library used for creating the captive portal for entering WiFi Details
 // Search for "Wifimanager" in the Arduino Library manager
 // https://github.com/tzapu/WiFiManager
-
-// OTA Updates — ESP8266 Arduino Core 2.4.0 documentation
-// https://arduino-esp8266.readthedocs.io/en/latest/ota_updates/readme.html
-#include <ArduinoOTA.h>
 
 //#include <TimerFreeTone.h>
 //#include <NonBlockingRtttl.h>
@@ -241,6 +243,17 @@ void handleNotFound() {
     server.send(404, "text/plain", message);
 }
 
+void addAlarmToJsonDoc(DynamicJsonDocument *json) {
+    JsonArray days = json->createNestedArray("alarmDay");
+    for (int i = 0; i < 7; i++) {
+        JsonObject obj = days.createNestedObject();
+        char timeString[6];
+        sprintf(timeString, "%02d:%02d", config.alarmDay[i].hour, config.alarmDay[i].minute);
+        obj["alarmTime"] = timeString;
+        obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
+    }
+}
+
 void handleGetData () {
     // Light level
     int a = analogRead(LDR_PIN);
@@ -249,11 +262,14 @@ void handleGetData () {
     // Current time
     String time = TZ.dateTime("H:i");
 
-    DynamicJsonDocument json(512); // FIXME tune this
+    DynamicJsonDocument json(1512); // FIXME tune this
 
     json["lightLevel"] = String(a);
     json["wifiQuality"] = String(rssi);
     json["time"] = String(time);
+
+    // Also send alarm data
+    addAlarmToJsonDoc(&json);
 
     String s;
     serializeJson(json, s);
@@ -331,7 +347,8 @@ void handleSetSettings() {
 void handleGetAlarm() {
 
     DynamicJsonDocument json(1000); // FIXME tune this
-
+    addAlarmToJsonDoc(&json);
+/*
     JsonArray days = json.createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
         JsonObject obj = days.createNestedObject();
@@ -340,7 +357,7 @@ void handleGetAlarm() {
         obj["alarmTime"] = timeString;
         obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
     }
-
+*/
     String s;
     serializeJson(json, s);
     Serial.printf("hGA: sending %s\n", s.c_str());
@@ -635,7 +652,8 @@ static void displayTime (void) {
 static void toggleNextAlarm (void) {
     int i = nextAlarmIndex();
     if (i >= 0) {
-       config.alarmDay[i].set ^= true;
+        config.alarmDay[i].set ^= true;
+        PRINTF("tNA: next alarm toggled to %o (i=%d)\n", config.alarmDay[i].set, i);
     }
 }
 
@@ -699,13 +717,6 @@ void setup() {
     TZ.setLocation(config.tz);
     Serial.println("Local: " + TZ.dateTime());
 
-    // OTA Port defaults to 8266
-    // ArduinoOTA.setPort(8266);
-    // OTA hostname defaults to esp8266-[ChipID]
-    ArduinoOTA.setHostname("alarmclock");
-    ArduinoOTA.begin();	// start the OTA responder
-    PRINTLN("OTA server started");
-
     timers::setup();
 
     // Load the alarm tune
@@ -720,7 +731,6 @@ void loop() {
     timers::loop();
     ezt::events();
     e8rtp::loop();
-	ArduinoOTA.handle();
     server.handleClient();
 
     setButtonStates();

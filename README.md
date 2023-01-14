@@ -59,6 +59,15 @@ To test the melody, copy-and-paste it into a site such as [Adam Rahwane](https:/
 
 * Choose your timezone from the list on [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
 
+## Buttons
+
+When alarm sounding:
+* Right button cancels alarm
+* Left button sleeps alarm
+Otherwise
+* Either button lights display for a few seconds if it's off
+* Long press on right button cancels or sets next alarm -- colon flashes if alarm is due in the next 24 hours
+
 ## Dependencies
 
 The code includes the following libraries:

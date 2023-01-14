@@ -54,7 +54,7 @@ function saveAlarm() {
         setTimeout(saveAlarm, 0);
         return;
     }
-    alreadyFetching("saveAlarm");   // no need to check return code
+    alreadyFetching("saveAlarm");
     showWaiting(false);
 
     //var parms = "";
@@ -92,7 +92,7 @@ function saveSettings () {
         setTimeout(saveSettings, 0);
         return;
     }
-    alreadyFetching("saveSettings");   // no need to check return code
+    alreadyFetching("saveSettings");
     showWaiting(false);
     const jsonObject = {
         melody: melody.value,
@@ -110,9 +110,11 @@ function settingsSuccess (data, status) {
 }
 
 function displayAlarm (json) {
-    for (var dy = 0; dy < 7; dy++) {
-        time[dy].value = json["alarmDay"][dy]["alarmTime"];
-        set[dy].checked = (json["alarmDay"][dy]["alarmSet"] == "1");
+    if (Object.hasOwn(json, "alarmDay")) {
+        for (var dy = 0; dy < 7; dy++) {
+            time[dy].value = json["alarmDay"][dy]["alarmTime"];
+            set[dy].checked = (json["alarmDay"][dy]["alarmSet"] == "1");
+        }
     }
  }
 
@@ -161,6 +163,8 @@ function getData() {
         if (currentTime) {
             currentTime.textContent = json.time;
         }
+        // also update alarms stuff -- could have been changed via buttons.
+        displayAlarm(json);
     });
 }
 
