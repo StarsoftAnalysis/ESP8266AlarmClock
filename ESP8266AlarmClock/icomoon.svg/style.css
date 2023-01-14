@@ -1,0 +1,32 @@
+.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  stroke-width: 0;
+  stroke: currentColor;
+  fill: currentColor;
+}
+
+/* ==========================================
+Single-colored icons can be modified like so:
+.icon-name {
+  font-size: 32px;
+  color: red;
+}
+========================================== */
+
+.icon-lightbulb-o {
+  width: 0.5712890625em;
+}
+
+.icon-wifi {
+  width: 1.142578125em;
+}
+
+.icon-code-fork {
+  width: 0.5712890625em;
+}
+
+.icon-clock-o {
+  width: 0.857421875em;
+}
