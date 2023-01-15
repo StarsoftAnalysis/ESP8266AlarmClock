@@ -32,6 +32,88 @@ const char settingspage[] PROGMEM = R"=====(
     <script src="/bootstrapjs"></script>
     <script src="/js" xdefer></script>
 
+  <!-- js for wifi settings -->
+  <script>
+
+  // TODO factor out these functions that are duplicated in index.html
+
+  // Set span text
+  function settext (id, text) {
+    let element = document.getElementById(id);
+    if (element) {
+      element.textContent = text;
+    }
+  }
+
+  // Set input value
+  function setvalue (id, text) {
+    let element = document.getElementById(id);
+    if (element) {
+      element.value = text;
+    }
+  }
+
+  // Get input value
+  function getvalue (id) {
+    let element = document.getElementById(id);
+    if (element) {
+      return element.value
+    }
+    return '';
+  }
+
+  function showapsettings (json) {
+     // for (let key in json) {
+     //     setvalue(key, json[key]);
+     // }
+    for (let i = 0; i < json.wifimax; i++) {
+      setvalue("wifissid" + i, json.wifissid[i]);
+      setvalue("wifipass" + i, json.wifipass[i]);
+    }
+  }
+
+  function getapsettings () {
+    fetch("/apsettings")
+    .then(response => response.json())
+    .then(json => showapsettings(json));
+  }
+
+  function makepostargs (data) {
+    let args = '';
+    for (let key in data) {
+      args += encodeURIComponent(key) + '=' + encodeURIComponent(data[key]) + '&';
+    }
+    return args;
+  }
+
+  function submitform () {
+    let data = {
+      wifissid0: getvalue('wifissid0'),
+      wifipass0: getvalue('wifipass0'),
+      wifissid1: getvalue('wifissid1'),
+      wifipass1: getvalue('wifipass1'),
+      wifissid2: getvalue('wifissid2'),
+      wifipass2: getvalue('wifipass2'),
+    };
+    //console.log('sending form data: ', data);
+    fetch("/apupdate?", { method: 'POST', body: makepostargs(data), })
+    .then(response => response.json())
+    .then(json => {
+        showapsettings(json);
+        settext("submitresult", "Done");
+        setTimeout(function () { settext("submitresult", ""); }, 5000);
+    });
+  }
+
+  window.onload = function () {
+
+    getapsettings();
+
+    document.getElementById("submit").onclick = submitform;
+
+  } // .onload
+  </script>
+
 </head>
 
 <body class="d-flex flex-column h-100">
@@ -63,6 +145,42 @@ const char settingspage[] PROGMEM = R"=====(
       </div>
     </div>
 
+    <div>
+<p>Enter name (SSID) and password (key) for up to three WiFi networks.
+<p>Clear an SSID field to delete it.
+<p>When you click on 'Save' with at least one SSID entered, the plotter will revert to, or stay in, 'station' mode and attempt to connect to the network.
+
+<form action="" method="get">
+
+    <fieldset>
+      <legend>WiFi Network 0</legend>
+      <p><label for="wifissidi0">SSID:</label>
+      <input type="text" name=wifissid0 id="wifissid0">
+      <p><label for="wifipass0">Password:</label>
+      <input type="password" name=wifipass0 id="wifipass0">
+    </fieldset>
+
+    <fieldset>
+      <legend>WiFi Network 1</legend>
+      <p><label for="wifissid1">SSID:</label>
+      <input type="text" name=wifissid1 id="wifissid1">
+      <p><label for="wifipass1">Password:</label>
+      <input type="password" name=wifipass1 id="wifipass1">
+    </fieldset>
+
+    <fieldset>
+      <legend>WiFi Network 2</legend>
+      <p><label for="wifissid2">SSID:</label>
+      <input type="text" name=wifissid2 id="wifissid2">
+      <p><label for="wifipass2">Password:</label>
+      <input type="password" name=wifipass2 id="wifipass2">
+    </fieldset>
+
+    <p><button type="button" id=submit>Save</button>&nbsp; <span id=save></span>
+
+  </form>
+</div>
+
     <a href="/">Main Page</a>
 
   </div>
@@ -82,7 +200,7 @@ const char settingspage[] PROGMEM = R"=====(
 
             <!-- code-fork.svg --><svg version="1.1" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 16 28"><path d="M4.5 23c0-0.828-0.672-1.5-1.5-1.5s-1.5 0.672-1.5 1.5 0.672 1.5 1.5 1.5 1.5-0.672 1.5-1.5zM4.5 5c0-0.828-0.672-1.5-1.5-1.5s-1.5 0.672-1.5 1.5 0.672 1.5 1.5 1.5 1.5-0.672 1.5-1.5zM14.5 7c0-0.828-0.672-1.5-1.5-1.5s-1.5 0.672-1.5 1.5 0.672 1.5 1.5 1.5 1.5-0.672 1.5-1.5zM16 7c0 1.109-0.609 2.078-1.5 2.594-0.047 5.641-4.047 6.891-6.703 7.734-2.484 0.781-3.297 1.156-3.297 2.672v0.406c0.891 0.516 1.5 1.484 1.5 2.594 0 1.656-1.344 3-3 3s-3-1.344-3-3c0-1.109 0.609-2.078 1.5-2.594v-12.812c-0.891-0.516-1.5-1.484-1.5-2.594 0-1.656 1.344-3 3-3s3 1.344 3 3c0 1.109-0.609 2.078-1.5 2.594v7.766c0.797-0.391 1.641-0.656 2.406-0.891 2.906-0.922 4.562-1.609 4.594-4.875-0.891-0.516-1.5-1.484-1.5-2.594 0-1.656 1.344-3 3-3s3 1.344 3 3z"></path>
 </svg>
-            Version: 0.2.1dev<br>
+            Version: 0.2.2dev<br>
 
             <!-- github.svg --><svg version="1.1" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 32 32"><path d="M16 0.396c-8.84 0-16 7.164-16 16 0 7.071 4.584 13.067 10.94 15.18 0.8 0.151 1.093-0.344 1.093-0.769 0-0.38-0.013-1.387-0.020-2.72-4.451 0.965-5.389-2.147-5.389-2.147-0.728-1.847-1.78-2.34-1.78-2.34-1.449-0.992 0.112-0.972 0.112-0.972 1.607 0.112 2.451 1.648 2.451 1.648 1.427 2.447 3.745 1.74 4.66 1.331 0.144-1.035 0.556-1.74 1.013-2.14-3.553-0.4-7.288-1.776-7.288-7.907 0-1.747 0.62-3.173 1.647-4.293-0.18-0.404-0.72-2.031 0.14-4.235 0 0 1.34-0.429 4.4 1.64 1.28-0.356 2.64-0.532 4-0.54 1.36 0.008 2.72 0.184 4 0.54 3.040-2.069 4.38-1.64 4.38-1.64 0.86 2.204 0.32 3.831 0.16 4.235 1.020 1.12 1.64 2.547 1.64 4.293 0 6.147-3.74 7.5-7.3 7.893 0.56 0.48 1.080 1.461 1.080 2.96 0 2.141-0.020 3.861-0.020 4.381 0 0.42 0.28 0.92 1.1 0.76 6.401-2.099 10.981-8.099 10.981-15.159 0-8.836-7.164-16-16-16z"></path></svg>
             <a href="https://github.com/starsoftanalysis/ESP8266AlarmClock/" target="_blank">GitHub</a><br>

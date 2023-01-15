@@ -69,9 +69,9 @@ const uint8_t SEG_FILE[] = {
   LETTER_E
 };
 
-const uint8_t SEG_WIFI[] = {
-  LETTER_W,
-  LETTER_I,
-  LETTER_F,
-  LETTER_I 
-};
+//const uint8_t SEG_WIFI[] = {
+//  LETTER_W,
+//  LETTER_I,
+//  LETTER_F,
+//  LETTER_I 
+//};

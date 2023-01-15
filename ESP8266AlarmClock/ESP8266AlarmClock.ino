@@ -16,13 +16,13 @@
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    AlarmClock is distributed in the hope that it will be useful,
+    ESP8266AlarmClock is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
+    along with ESP8266AlarmClock.  If not, see <https://www.gnu.org/licenses/>.
     ---
 
     Features:
@@ -32,9 +32,9 @@
     - snooze and repeat alarm
     - RTTTL tunes
     - display is completely off at night, and comes on if any button is pressed
+    - set and cancel alarm time via buttons
 
     Features planned:
-    - set and cancel alarm time via buttons
     - likewise for current time (in case internet is not available)
 
 ****************************************************************/
@@ -122,10 +122,11 @@
 // Search for "Arduino Json" in the Arduino Library manager
 // https://github.com/bblanchon/ArduinoJson
 
-#include <WiFiManager.h>
-// Library used for creating the captive portal for entering WiFi Details
-// Search for "Wifimanager" in the Arduino Library manager
-// https://github.com/tzapu/WiFiManager
+#include "wifi.h"
+//#include <WiFiManager.h>
+//// Library used for creating the captive portal for entering WiFi Details
+//// Search for "Wifimanager" in the Arduino Library manager
+//// https://github.com/tzapu/WiFiManager
 
 //#include <TimerFreeTone.h>
 //#include <NonBlockingRtttl.h>
@@ -248,9 +249,9 @@ void addAlarmToJsonDoc(DynamicJsonDocument *json) {
     for (int i = 0; i < 7; i++) {
         JsonObject obj = days.createNestedObject();
         char timeString[6];
-        sprintf(timeString, "%02d:%02d", config.alarmDay[i].hour, config.alarmDay[i].minute);
+        sprintf(timeString, "%02d:%02d", config::config.alarmDay[i].hour, config::config.alarmDay[i].minute);
         obj["alarmTime"] = timeString;
-        obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
+        obj["alarmSet"] = (config::config.alarmDay[i].set ? "1" : "0");
     }
 }
 
@@ -279,7 +280,7 @@ void handleGetData () {
 
 void handleSetAlarm() {
 
-    config_t newConfig = config;    // copy old config
+    config::config_t newConfig = config::config;    // copy old config
 
     DynamicJsonDocument doc(512);
     deserializeJson(doc, server.arg("plain"));   // body
@@ -308,7 +309,7 @@ void handleSetAlarm() {
 
 void handleSetSettings() {
 
-    config_t newConfig = config;    // copy old config
+    config::config_t newConfig = config::config;    // copy old config
 
     DynamicJsonDocument doc(512);
     deserializeJson(doc, server.arg("plain"));   // body
@@ -326,7 +327,7 @@ void handleSetSettings() {
     }
 
     // Play the new melody if it's changed
-    if (strcmp(newConfig.melody, config.melody) == 0) {
+    if (strcmp(newConfig.melody, config::config.melody) == 0) {
         if (e8rtp::state() == e8rtp::Playing) {
             e8rtp::stop();
         }
@@ -334,7 +335,7 @@ void handleSetSettings() {
     }
 
     // Set timezone if it's changed
-    if (newConfig.tz != config.tz) {
+    if (newConfig.tz != config::config.tz) {
         TZ.setLocation(newConfig.tz);
     }
 
@@ -353,9 +354,9 @@ void handleGetAlarm() {
     for (int i = 0; i < 7; i++) {
         JsonObject obj = days.createNestedObject();
         char timeString[6];
-        sprintf(timeString, "%02d:%02d", config.alarmDay[i].hour, config.alarmDay[i].minute);
+        sprintf(timeString, "%02d:%02d", config::config.alarmDay[i].hour, config::config.alarmDay[i].minute);
         obj["alarmTime"] = timeString;
-        obj["alarmSet"] = (config.alarmDay[i].set ? "1" : "0");
+        obj["alarmSet"] = (config::config.alarmDay[i].set ? "1" : "0");
     }
 */
     String s;
@@ -369,9 +370,9 @@ void handleGetSettings() {
 
     DynamicJsonDocument json(512); // FIXME tune this
 
-    json["volume"] = config.volume;
-    json["melody"] = String(config.melody);
-    json["tz"] = String(config.tz);
+    json["volume"] = config::config.volume;
+    json["melody"] = String(config::config.melody);
+    json["tz"] = String(config::config.tz);
 
     String s;
     serializeJson(json, s);
@@ -380,11 +381,11 @@ void handleGetSettings() {
 
 }
 
-void configModeCallback (WiFiManager *myWiFiManager) {
-    Serial.println("Entered WiFi config mode");
-    Serial.println(WiFi.softAPIP());
-    display.setSegments(SEG_WIFI);
-}
+//void configModeCallback (WiFiManager *myWiFiManager) {
+//    Serial.println("Entered WiFi config mode");
+//    Serial.println(WiFi.softAPIP());
+//    display.setSegments(SEG_WIFI);
+//}
 
 static void setButtonStates (void) {
     // Check for button presses, with 'debouncing' so that a single press is only detected for one loop.
@@ -462,8 +463,8 @@ static int nextAlarmIndex (void) {
     int wd1 = (wd + 1) % 7;
     int hr = TZ.hour();
     int mn = TZ.minute();
-    alarmDetails_t today = config.alarmDay[wd];
-    alarmDetails_t tomorrow = config.alarmDay[wd1];
+    config::alarmDetails_t today = config::config.alarmDay[wd];
+    config::alarmDetails_t tomorrow = config::config.alarmDay[wd1];
     if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
         next = wd;
     } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
@@ -504,7 +505,7 @@ static void checkForAlarm () {
         case alarmStateEnum::Off: {
             int i = nextAlarmIndex();
             if (i >= 0) {
-                alarmDetails_t alarm = config.alarmDay[i];
+                config::alarmDetails_t alarm = config::config.alarmDay[i];
                 //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
                 if (alarm.set && hr == alarm.hour && mn == alarm.minute) {
                     // set time -- start ringing
@@ -639,7 +640,7 @@ static void displayTime (void) {
 
     // Toggle colon every second, but keep it on if the alarm is set
     int i = nextAlarmIndex();
-    bool set = (i >= 0) && (config.alarmDay[i].set);
+    bool set = (i >= 0) && (config::config.alarmDay[i].set);
     bool showColon = set || (TZ.second() % 2);
     if (showColon) {
         digits[1] |= 1 << 7;
@@ -652,8 +653,8 @@ static void displayTime (void) {
 static void toggleNextAlarm (void) {
     int i = nextAlarmIndex();
     if (i >= 0) {
-        config.alarmDay[i].set ^= true;
-        PRINTF("tNA: next alarm toggled to %o (i=%d)\n", config.alarmDay[i].set, i);
+        config::config.alarmDay[i].set ^= true;
+        PRINTF("tNA: next alarm toggled to %o (i=%d)\n", config::config.alarmDay[i].set, i);
     }
 }
 
@@ -669,26 +670,26 @@ void setup() {
     display.setBrightness(2);
     display.setSegments(SEG_BOOT);
 
-    configSetup();
-    loadConfig(); 
+    timers::setup();
+
+    config::setup();
+    config::loadConfig(); 
 
     pinMode(RBUTTON_PIN, INPUT_PULLUP);
     pinMode(LBUTTON_PIN, INPUT_PULLUP);
 
     //attachInterrupt(RBUTTON_PIN, interuptButton, RISING);  // TODO both buttons, or probably not at all
 
-    // !! Don't stop here if no wifi TODO
-    WiFiManager wifiManager;
-    wifiManager.setAPCallback(configModeCallback);
-    wifiManager.autoConnect("ESP8266AlarmClock");  // could check boolean rc from this
-    IPAddress ipAddress = WiFi.localIP();
-
-    Serial.println("\nWiFi Connected");
-    Serial.print("IP address: ");
-    Serial.println(ipAddress);
-
-    display.showNumberDec(ipAddress[3], false);
-    delay(1000);
+	wifi::setup();
+    //WiFiManager wifiManager;
+    //wifiManager.setAPCallback(configModeCallback);
+    //wifiManager.autoConnect("ESP8266AlarmClock");  // could check boolean rc from this
+    //IPAddress ipAddress = WiFi.localIP();
+    //Serial.println("\nWiFi Connected");
+    //Serial.print("IP address: ");
+    //Serial.println(ipAddress);
+    //display.showNumberDec(ipAddress[3], false);
+    //delay(1000);
 
     // HTTP Server
     server.on("/", handleMain);
@@ -715,13 +716,13 @@ void setup() {
     ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
     ezt::waitForSync();
     Serial.println("\nUTC: " + UTC.dateTime());
-    TZ.setLocation(config.tz);
+    TZ.setLocation(config::config.tz);
     Serial.println("Local: " + TZ.dateTime());
 
     timers::setup();
 
     // Load the alarm tune
-    e8rtp::setup(BUZZER_PIN, config.volume, config.melody);
+    e8rtp::setup(BUZZER_PIN, config::config.volume, config::config.melody);
 
     alarmState = alarmStateEnum::Off;
 }
