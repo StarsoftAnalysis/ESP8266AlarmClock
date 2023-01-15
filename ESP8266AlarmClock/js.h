@@ -7,6 +7,8 @@ const char js[] PROGMEM = R"=====(
 let volume, volumeOutput, melody, tz, statusMsg, saveAlarmButton, saveSettingsButton, adcValue, wifiValue, currentTime;
 let time = [];
 let set = [];
+let alarmFieldChanged = false;  // True if user has changed one the alarm fields since last time they were set.
+let alarmFieldTimeout = 0;
 
 const fetchTimeout = 5000;
 const fetchWaitTimeout = 10000;
@@ -26,12 +28,12 @@ function alreadyFetching (label) {
         console.log("fetch timed out in", label); 
         fetchingDone("timeout"); 
     }, fetchTimeout);
-    console.log(label, "fetchingTimer =", fetchingTimer);
+    //console.log(label, "fetchingTimer =", fetchingTimer);
     return false;
 }
 
 function fetchingDone (label) {
-    console.log("fetchingDone for %s, t=%d", label, fetchingTimer);
+    //console.log("fetchingDone for %s, t=%d", label, fetchingTimer);
     clearTimeout(fetchingTimer);
     fetchingTimer = 0;
 }
@@ -136,6 +138,7 @@ function getAlarm(){
         fetchingDone("getAlarm");
         if (window.location.pathname == "/") {
             displayAlarm(json);
+            alarmFieldChanged = false;
         } else {
             displaySettings(json);
         }
@@ -163,9 +166,13 @@ function getData() {
         if (currentTime) {
             currentTime.textContent = json.time;
         }
-        // also update alarms stuff -- could have been changed via buttons.
-        displayAlarm(json);
-    });
+        // Also update alarms stuff -- could have been changed via buttons.
+        // But don't if user is entering things.
+        if (!alarmFieldChanged) {
+            displayAlarm(json);
+        }
+    })
+    .catch(() => {});  // do nothing if the fetch failed
 }
 
 /*
@@ -190,6 +197,15 @@ function getTime() {
 }
 */
 
+function setAlarmFieldChanged () {
+    alarmFieldChanged = true;
+    clearTimeout(alarmFieldTimeout);
+    alarmFieldTimeout = setTimeout(() => {
+        // Clear the flag (and lose user input) if they do nothing for a while
+        alarmFieldChanged = false;
+    }, 5*60*1000); // 5 mins
+}
+
 window.onload = function () {
 
     const id = document.getElementById.bind(document);
@@ -209,6 +225,7 @@ window.onload = function () {
         time[i] = id("time" + i);
         set[i] = id("set" + i);
     }
+    alarmFieldChanged = false;
 
     if (window.location.pathname == "/") {
         getAlarm();
@@ -221,9 +238,18 @@ window.onload = function () {
         getSettings();
         saveSettingsButton.addEventListener("click", saveSettings);
     }
+
+    // Detect any changes to alarm settings, to avoid overwriting user 
+    // input with values from getData()
+    const alarmFields = document.querySelectorAll('input.alarmField');
+    alarmFields.forEach((af) => {
+        af.addEventListener('input', setAlarmFieldChanged);
+    });
+
+    // Call getData repeatedly
     setInterval(function() {
         getData();
-    }, 2000);
+    }, 2000);  // 2s
 
 }
 )=====";

@@ -42,6 +42,8 @@
 // 21/9/21: This is dev branch -- pre-async, new progress from here as 0.2.0...
 
 // TODO:
+// * --:-- is not 00:00 - need to completely unset an alarm so that the button doesn't set it
+// * getData to also get display status, not just time e.g. boot Wifi 55 etc.
 // * allow user to set repeat/snooze times etc.
 // * separate 'Settings' web page'
 //   - need to separate .js file and use it for both pages
@@ -50,7 +52,6 @@
 // * make use of PRINTLN vs Serial.println consistent.
 // * if no internet, prompt for manual time setting
 // * cope with losing wifi -- gets stuck on WIFI display
-// * simple config: set/unset alarm on long left; show alarm time on long right (what if no alarm in next 24hours)
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
 // * more aria labels in html
 // * allow user to set light level for turning display off
@@ -58,7 +59,6 @@
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
 // * button functions --  'config' more
-//   - cancel / enable next alarm
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
 // * alarm to get louder gradually
 // * HTTPS? -- see http://www.iotsharing.com/2017/08/how-to-use-https-in-arduino-esp32.html
@@ -677,6 +677,7 @@ void setup() {
 
     //attachInterrupt(RBUTTON_PIN, interuptButton, RISING);  // TODO both buttons, or probably not at all
 
+    // !! Don't stop here if no wifi TODO
     WiFiManager wifiManager;
     wifiManager.setAPCallback(configModeCallback);
     wifiManager.autoConnect("ESP8266AlarmClock");  // could check boolean rc from this

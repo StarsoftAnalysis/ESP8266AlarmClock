@@ -51,38 +51,38 @@ const char mainpage[] PROGMEM = R"=====(
             <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
             <tr>
                 <td><label for="time0" class="form-label">Sunday</label></td>
-                <td><input id="time0" type="time" class="form-control" aria-label="Alarm time Sunday"></td>
-                <td><input id="set0" class="form-check-input" type="checkbox" aria-label="Alarm set Sunday"</td>
+                <td><input id="time0" type="time" class="form-control alarmField" aria-label="Alarm time Sunday"></td>
+                <td><input id="set0" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Sunday"</td>
             </tr> 
             <tr>
                 <td><label for="time1" class="form-label">Monday</label></td>
-                <td><input id="time1" type="time" class="form-control" aria-label="Alarm time Monday"></td>
-                <td><input id="set1" class="form-check-input" type="checkbox" aria-label="Alarm set Monday"</td>
+                <td><input id="time1" type="time" class="form-control alarmField" aria-label="Alarm time Monday"></td>
+                <td><input id="set1" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Monday"</td>
             </tr> 
             <tr>
                 <td><label for="time2" class="form-label">Tuesday</label></td>
-                <td><input id="time2" type="time" class="form-control" aria-label="Alarm time Tuesday"></td>
-                <td><input id="set2" class="form-check-input" type="checkbox" aria-label="Alarm set Tuesday"</td>
+                <td><input id="time2" type="time" class="form-control alarmField" aria-label="Alarm time Tuesday"></td>
+                <td><input id="set2" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Tuesday"</td>
             </tr> 
             <tr>
                 <td><label for="time3" class="form-label">Wednesday</label></td>
-                <td><input id="time3" type="time" class="form-control" aria-label="Alarm time Wednesday"></td>
-                <td><input id="set3" class="form-check-input" type="checkbox" aria-label="Alarm set Wednesday"</td>
+                <td><input id="time3" type="time" class="form-control alarmField" aria-label="Alarm time Wednesday"></td>
+                <td><input id="set3" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Wednesday"</td>
             </tr> 
             <tr>
                 <td><label for="time4" class="form-label">Thursday</label></td>
-                <td><input id="time4" type="time" class="form-control" aria-label="Alarm time Thursday"></td>
-                <td><input id="set4" class="form-check-input" type="checkbox" aria-label="Alarm set Thursday"</td>
+                <td><input id="time4" type="time" class="form-control alarmField" aria-label="Alarm time Thursday"></td>
+                <td><input id="set4" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Thursday"</td>
             </tr> 
             <tr>
                 <td><label for="time5" class="form-label">Friday</label></td>
-                <td><input id="time5" type="time" class="form-control" aria-label="Alarm time Friday"></td>
-                <td><input id="set5" class="form-check-input" type="checkbox" aria-label="Alarm set Friday"</td>
+                <td><input id="time5" type="time" class="form-control alarmField" aria-label="Alarm time Friday"></td>
+                <td><input id="set5" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Friday"</td>
             </tr> 
             <tr>
                 <td><label for="time6" class="form-label">Saturday</label></td>
-                <td><input id="time6" type="time" class="form-control" aria-label="Alarm time Saturday"></td>
-                <td><input id="set6" class="form-check-input" type="checkbox" aria-label="Alarm set Saturday"</td>
+                <td><input id="time6" type="time" class="form-control alarmField" aria-label="Alarm time Saturday"></td>
+                <td><input id="set6" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Saturday"</td>
             </tr> 
           </table>
         </div>
