@@ -45,7 +45,7 @@ namespace config {
 		}
 		PRINTF("\thostname: %s\n", config.hostname);
 		for (size_t i = 0; i < WIFI_MAX; i++) {
-			PRINTF("\tssid: %33s  psk: ***\n", config.wifi[i].ssid);
+			PRINTF("\tssid: %33s  pass: ***\n", config.wifi[i].ssid);
 		}
 	}
 
@@ -71,7 +71,7 @@ namespace config {
 		strlcpy(config.hostname, "ESP3266AlarmClock", sizeof(config.hostname));
 		for (size_t i = 0; i < WIFI_MAX; i++) {
 			config.wifi[i].ssid[0] = '\0';
-			config.wifi[i].psk[0] = '\0';
+			config.wifi[i].pass[0] = '\0';
 		}
 	}
 
@@ -98,7 +98,7 @@ namespace config {
 		EEPROM.commit();
 	}
 
-	void configSetup () {
+	void setup () {
 		EEPROM.begin(sizeof(config));
 	}
 

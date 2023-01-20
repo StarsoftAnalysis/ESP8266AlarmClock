@@ -124,7 +124,7 @@ static int best_wifi (int networksFound) {
 				}
 				// got a match
 				//WiFi.mode(WIFI_STA);
-				//WiFi.begin(config::config.wifi[j].ssid, config::config.wifi[j].psk);
+				//WiFi.begin(config::config.wifi[j].ssid, config::config.wifi[j].pass);
 				//return; // don't look any further
 			}
 		}
@@ -139,7 +139,7 @@ static void connect_best_wifi (int networksFound) {
 	int best_ssid_index = best_wifi(networksFound);
 	if (best_ssid_index > -1) {
 		WiFi.mode(WIFI_STA);
-		WiFi.begin(config::config.wifi[best_ssid_index].ssid, config::config.wifi[best_ssid_index].psk);
+		WiFi.begin(config::config.wifi[best_ssid_index].ssid, config::config.wifi[best_ssid_index].pass);
 	} else {
 		// what? stay in whatever mode we're in...
 	}
@@ -154,6 +154,7 @@ void start_sta_mode () {
 // (called via a timer, not direct from the loop)
 static void monitor_wifi () {
 	//PRINTF("monitor_wifi: mode is %i:%s, wifi_status is %i:%s\r\n", WiFi.getMode(), wifi_mode().c_str(), WiFi.status(), wifi_status().c_str());
+	PRINTF("monitor_wifi: mode is %i:%s, wifi_status is %i:%s\r\n", WiFi.getMode(), "??", WiFi.status(), "??");
 	unsigned long delay = 10000; // default delay until running this function again
 	//	WiFi.mode(m): set mode to WIFI_AP, WIFI_STA, WIFI_AP_STA or WIFI_OFF
 	switch (WiFi.getMode()) { // : return current Wi-Fi mode (one out of four modes above)
@@ -164,7 +165,7 @@ static void monitor_wifi () {
 			delay = 2000; // don't wait so long before trying again
 			break;
 		case WIFI_AP_STA:
-			// Shouldn't be that - go to just STA
+			// Shouldn't be that - go to just STA		// FIXME or maybe allow this mode
 			PRINTLN("WiFi is AP_STA, going to STA");
 			start_sta_mode();
 			break;
@@ -218,6 +219,7 @@ static void onStationModeGotIP (const WiFiEventStationModeGotIP& evt) {
 void setup() {
 
 	// Set WIFI module to STA mode
+	// // FIXME if ssidCount > 0, but there are no valid ones, we get nowhere (no PRINTF output...)
 	WiFi.setAutoConnect(false); // we'll handle the connection
 	if (config::ssidCount() == 0) {
 		start_ap_mode();
@@ -225,6 +227,7 @@ void setup() {
 		WiFi.mode(WIFI_STA);
 	}
 
+	// FIXME this PRINTF causes repeated crashes: //PRINTF("wifi::setup: ssidCount = %n\n", config::ssidCount());
 	timers::setTimer(TIMER_MONITOR_WIFI, 5000, monitor_wifi);
 
 	// DON'T FORGET event handlers https://github.com/esp8266/Arduino/blob/master/doc/esp8266wifi/generic-class.rst#wifieventhandler

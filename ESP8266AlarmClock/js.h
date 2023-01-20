@@ -175,28 +175,6 @@ function getData() {
     .catch(() => {});  // do nothing if the fetch failed
 }
 
-/*
-function getWiFi() {
-    if (alreadyFetching("getWiFi")) return;
-    fetch("/getWiFi")
-    .then(response => response.text())
-    .then(text => {
-        fetchingDone("getWiFi");
-        wifiValue.textContent = text;
-    });
-}
-
-function getTime() {
-    if (alreadyFetching("getTime")) return;
-    fetch("/getTime")
-    .then(response => response.text())
-    .then(text => {
-        fetchingDone("getTime");
-        currentTime.textContent = text;
-    });
-}
-*/
-
 function setAlarmFieldChanged () {
     alarmFieldChanged = true;
     clearTimeout(alarmFieldTimeout);

@@ -43,7 +43,7 @@ namespace config {
 		char           hostname[32];      // Arbitrary length
 		struct {
 			char       ssid[33];		// keep these empty when not in use
-			char       psk[65];
+			char       pass[65];
 		} wifi[WIFI_MAX];
 	} config_t;
 

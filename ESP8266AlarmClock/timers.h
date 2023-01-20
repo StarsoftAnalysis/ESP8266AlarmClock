@@ -30,9 +30,9 @@ namespace timers {
     // One-shot Timers -- as many as needed, with names to avoid confusion
 #   define TIMERCOUNT 4
 #   define TIMER_KEEP_LIGHT_ON 0  
-#   define TIMER_TRY_AP_MODE 0  
-#   define TIMER_STOP_AP_MODE 1
-#   define TIMER_MONITOR_WIFI 2
+#   define TIMER_TRY_AP_MODE   1  
+#   define TIMER_STOP_AP_MODE  2
+#   define TIMER_MONITOR_WIFI  3
 
     typedef void (*TimerFn)(void);
     void setTimer (int id, unsigned int delay, TimerFn fn, bool force = true);

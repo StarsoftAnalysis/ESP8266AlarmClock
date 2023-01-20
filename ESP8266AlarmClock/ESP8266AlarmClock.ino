@@ -28,7 +28,8 @@
     Features:
     - Web interface for setting the alarm
     - Captive portal for setting WiFi Details
-    - Automatically adjust for DST
+    - Set your local timezone
+    - Automatically adjusts for DST
     - snooze and repeat alarm
     - RTTTL tunes
     - display is completely off at night, and comes on if any button is pressed
@@ -41,14 +42,19 @@
 
 // 21/9/21: This is dev branch -- pre-async, new progress from here as 0.2.0...
 
+// FIXME:
+// * monitor_wifi not getting called
+
 // TODO:
+// * put volume on main alarm page
 // * --:-- is not 00:00 - need to completely unset an alarm so that the button doesn't set it
-// * getData to also get display status, not just time e.g. boot Wifi 55 etc.
+// * getData to also get display status, not just time e.g. boot Wifi 55 etc.  -- send what's on the display as text e.g. "12:34"
+//     and  display status e.g. 'Alarm ringing', and 'Time to next alarm' on webpage
+// * update all License bits with full name and dates
 // * allow user to set repeat/snooze times etc.
 // * separate 'Settings' web page'
 //   - need to separate .js file and use it for both pages
 // * move svgs etc. into a folder
-// * display status e.g. 'Alarm ringing', and 'Time to next alarm' on webpage
 // * make use of PRINTLN vs Serial.println consistent.
 // * if no internet, prompt for manual time setting
 // * cope with losing wifi -- gets stuck on WIFI display
@@ -150,6 +156,8 @@
 #include "settingspage.h"
 // Defines "const char js[]":
 #include "js.h"
+// Defines "const char settingsjs[]":
+#include "settingsjs.h"
 // Bootstrap 5 CSS and JS
 // Defines "const char bootstrapcss[]":
 #include "bootstrap.min.css.h"
@@ -231,6 +239,10 @@ void handleJS() {
     PRINTF("Sending '/js' length %d\n", strlen_P(js));
     server.send(200, "text/javascript", js);
 }
+void handleSettingsJS() {
+    PRINTF("Sending '/settingsjs' length %d\n", strlen_P(settingsjs));
+    server.send(200, "text/javascript", settingsjs);
+}
 void handleBootstrapJS() {
     server.send(200, "text/javascript", bootstrapjs);
 }
@@ -311,7 +323,7 @@ void handleSetSettings() {
 
     config::config_t newConfig = config::config;    // copy old config
 
-    DynamicJsonDocument doc(512);
+    DynamicJsonDocument doc(1512);  // FIXME tune this
     deserializeJson(doc, server.arg("plain"));   // body
     //Serial.println("hGA: args: ", server.arg("plain"));
 
@@ -326,7 +338,7 @@ void handleSetSettings() {
         strlcpy(newConfig.tz, doc["tz"], TZ_MAX);
     }
 
-    // Play the new melody if it's changed
+    // Play the new melody if it's changed and we're currently playing
     if (strcmp(newConfig.melody, config::config.melody) == 0) {
         if (e8rtp::state() == e8rtp::Playing) {
             e8rtp::stop();
@@ -337,6 +349,40 @@ void handleSetSettings() {
     // Set timezone if it's changed
     if (newConfig.tz != config::config.tz) {
         TZ.setLocation(newConfig.tz);
+    }
+
+    // Validate and store wifi details
+    if (doc.containsKey("wifissid")) {  // assume that "wifipass" is there too
+        struct {
+            String ssid;
+            String pass;
+        } wifi[WIFI_MAX];
+        JsonArray ssids = doc["wifissid"].as<JsonArray>();
+        JsonArray passes = doc["wifipass"].as<JsonArray>();
+        //for (JsonVariant ssid : ssids) {
+        for (size_t i = 0; i < WIFI_MAX; i++) {
+            wifi[i].ssid = "";
+            wifi[i].pass = "";
+            if (ssids[i].as<String>() == "") {
+                // ssid cleared -- delete from config
+            } else {
+                wifi[i].ssid = ssids[i].as<String>();
+                wifi[i].pass = passes[i].as<String>();
+            }
+        }
+        // pack the wifis into the config
+        int j = 0;
+        for (int i = 0; i < WIFI_MAX; i++) {
+            if (wifi[i].ssid != "") {
+                strlcpy(newConfig.wifi[j].ssid, wifi[i].ssid.c_str(), sizeof(newConfig.wifi[i].ssid));
+                strlcpy(newConfig.wifi[j].pass, wifi[i].pass.c_str(), sizeof(newConfig.wifi[i].pass));
+                j += 1;
+            }
+        }
+        for (int i = j; i < WIFI_MAX; i++) {
+            newConfig.wifi[i].ssid[0] = '\0';
+            newConfig.wifi[i].pass[0] = '\0';
+        }
     }
 
     storeConfig(&newConfig);    // also copies newConfig to config
@@ -368,11 +414,19 @@ void handleGetAlarm() {
 
 void handleGetSettings() {
 
-    DynamicJsonDocument json(512); // FIXME tune this
+    DynamicJsonDocument json(1512); // FIXME tune this
 
     json["volume"] = config::config.volume;
     json["melody"] = String(config::config.melody);
     json["tz"] = String(config::config.tz);
+
+    JsonArray wifissid = json.createNestedArray("wifissid");
+    JsonArray wifipass = json.createNestedArray("wifipass");
+    // FIXME don't send the passwords! -- maybe something the right length, with a way of saying "don't change the password" if the user hasn't typed anything
+    for (int i = 0; i < WIFI_MAX; i++) {
+        wifissid[i] = config::config.wifi[i].ssid;
+        wifipass[i] = config::config.wifi[i].pass;
+    }
 
     String s;
     serializeJson(json, s);
@@ -695,6 +749,7 @@ void setup() {
     server.on("/", handleMain);
     server.on("/settings", handleSettings);
     server.on("/js", handleJS);
+    server.on("/settingsjs", handleSettingsJS);
     server.on("/bootstrapjs", handleBootstrapJS);
     server.on("/bootstrapcss", handleBootstrapCSS);
     server.on("/setAlarm", handleSetAlarm);
@@ -714,10 +769,10 @@ void setup() {
     //ezt::setDebug(INFO);
     ezt::setInterval(60);
     ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
-    ezt::waitForSync();
-    Serial.println("\nUTC: " + UTC.dateTime());
+    // NO!, no wifi yet... ezt::waitForSync();
+    //Serial.println("\nUTC: " + UTC.dateTime());
     TZ.setLocation(config::config.tz);
-    Serial.println("Local: " + TZ.dateTime());
+    //Serial.println("Local: " + TZ.dateTime());
 
     timers::setup();
 
@@ -736,6 +791,29 @@ void loop() {
     server.handleClient();
 
     setButtonStates();
+
+    if (Serial.available() > 0) {
+        String input = Serial.readString();
+        // emulate buttons
+        if (input == "r") {
+            buttonState.rButtonPressed = true;
+            buttonState.aButtonPressed = true;
+        } else if (input == "l") {
+            buttonState.lButtonPressed = true;
+            buttonState.aButtonPressed = true;
+        } else if (input == "rl") {
+            buttonState.rButtonLong = true;
+            buttonState.rButtonPressed = true;
+            buttonState.aButtonPressed = true;
+        } else if (input == "ll") {
+            buttonState.lButtonLong = true;
+            buttonState.lButtonPressed = true;
+            buttonState.aButtonPressed = true;
+        } else {
+            Serial.printf("echo: '%s'\n", input.c_str());
+        }
+    }
+
     // debug button states:
     if (buttonState.lButtonPressed) {
         PRINTLN("l button pressed");
