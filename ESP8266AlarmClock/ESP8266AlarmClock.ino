@@ -52,6 +52,7 @@
 //     and  display status e.g. 'Alarm ringing', and 'Time to next alarm' on webpage
 // * update all License bits with full name and dates
 // * allow user to set repeat/snooze times etc.
+// * get rid of bootstrap
 // * separate 'Settings' web page'
 //   - need to separate .js file and use it for both pages
 // * move svgs etc. into a folder
@@ -60,7 +61,7 @@
 // * cope with losing wifi -- gets stuck on WIFI display
 // * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
 // * more aria labels in html
-// * allow user to set light level for turning display off
+// * allow user to set light level for turning display off in settings
 // * use #defines to set e.g. SNOOZE = LBUTTON etc. for ease of customisation
 // * Use NVS instead of EEPROM?
 //    - and/or use EZTime's cache
@@ -68,6 +69,7 @@
 //   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
 // * alarm to get louder gradually
 // * HTTPS? -- see http://www.iotsharing.com/2017/08/how-to-use-https-in-arduino-esp32.html
+// * ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
 
 // NO
 // - use ezTime events to trigger alarm?
@@ -352,40 +354,56 @@ void handleSetSettings() {
     }
 
     // Validate and store wifi details
+    int ssidCount = 0;
+    bool wifiSettingsChanged = false;
     if (doc.containsKey("wifissid")) {  // assume that "wifipass" is there too
+/*
         struct {
             String ssid;
             String pass;
         } wifi[WIFI_MAX];
+*/
         JsonArray ssids = doc["wifissid"].as<JsonArray>();
         JsonArray passes = doc["wifipass"].as<JsonArray>();
-        //for (JsonVariant ssid : ssids) {
         for (size_t i = 0; i < WIFI_MAX; i++) {
-            wifi[i].ssid = "";
-            wifi[i].pass = "";
+                newConfig.wifi[i].ssid[0] = '\0';
+                newConfig.wifi[i].pass[0] = '\0';
+            //wifi[i].ssid = "";
+            //wifi[i].pass = "";
             if (ssids[i].as<String>() == "") {
                 // ssid cleared -- delete from config
             } else {
-                wifi[i].ssid = ssids[i].as<String>();
-                wifi[i].pass = passes[i].as<String>();
+                strlcpy(newConfig.wifi[ssidCount].ssid, ssids[i].as<String>().c_str(), sizeof(newConfig.wifi[i].ssid));
+                strlcpy(newConfig.wifi[ssidCount].pass, passes[i].as<String>().c_str(), sizeof(newConfig.wifi[i].pass));
+                if (strcmp(newConfig.wifi[ssidCount].ssid, config::config.wifi[ssidCount].ssid) != 0 ||
+                    strcmp(newConfig.wifi[ssidCount].pass, config::config.wifi[ssidCount].pass) != 0    ) {
+             //   if (wifi[i].ssid != config::config.wifi[i].ssid ||
+               //     wifi[i].pass != config::config.wifi[i].pass    ) {
+                    wifiSettingsChanged = true;
+                }
+                ssidCount += 1;
             }
         }
+/*
         // pack the wifis into the config
-        int j = 0;
         for (int i = 0; i < WIFI_MAX; i++) {
-            if (wifi[i].ssid != "") {
-                strlcpy(newConfig.wifi[j].ssid, wifi[i].ssid.c_str(), sizeof(newConfig.wifi[i].ssid));
-                strlcpy(newConfig.wifi[j].pass, wifi[i].pass.c_str(), sizeof(newConfig.wifi[i].pass));
-                j += 1;
+            if (i < ssidCount) {
+                strlcpy(newConfig.wifi[i].ssid, wifi[i].ssid.c_str(), sizeof(newConfig.wifi[i].ssid));
+                strlcpy(newConfig.wifi[i].pass, wifi[i].pass.c_str(), sizeof(newConfig.wifi[i].pass));
+            } else {
+                newConfig.wifi[i].ssid[0] = '\0';
+                newConfig.wifi[i].pass[0] = '\0';
             }
         }
-        for (int i = j; i < WIFI_MAX; i++) {
-            newConfig.wifi[i].ssid[0] = '\0';
-            newConfig.wifi[i].pass[0] = '\0';
-        }
+*/
+    }
+    storeConfig(&newConfig);    // also copies newConfig to config
+
+    if (wifiSettingsChanged) {
+        // Tell wifi to try again
+        wifi::newSSIDs();
     }
 
-    storeConfig(&newConfig);    // also copies newConfig to config
     //FIXME if unexpected stuff sent, return non-200
     // FIXME supply sensible defaults e.g. to melody
     server.send(200, "text/html", "OK");
@@ -716,6 +734,7 @@ void setup() {
 
     Serial.begin(115200);
     Serial.println("\n=======================");
+    Serial.setDebugOutput(true);
 
     //Onboard LED port Direction output
     pinMode(LED_PIN, OUTPUT); 
@@ -794,6 +813,7 @@ void loop() {
 
     if (Serial.available() > 0) {
         String input = Serial.readString();
+        input.trim();
         // emulate buttons
         if (input == "r") {
             buttonState.rButtonPressed = true;

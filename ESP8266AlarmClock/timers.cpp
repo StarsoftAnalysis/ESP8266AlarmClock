@@ -42,7 +42,7 @@ namespace timers {
 
 	timer_t timers[TIMERCOUNT];
 
-	// 'force': default to true; if false, don't restart if already running
+	// 'force': defaults to true; if false, don't restart if already running
 	void setTimer (int id, unsigned int delay, TimerFn fn, bool force) {
 		if (id < 0 || id >= TIMERCOUNT) {
 			Serial.printf("setTimer: invalid id %i ignored\r\n", id);
@@ -71,7 +71,6 @@ namespace timers {
 		}
 	}
 
-	// The utils loop runs the timers
 	void loop () {
 		for (int i = 0; i < TIMERCOUNT; i++) {
 			if (timers[i].fn != NULL) {

@@ -2,6 +2,7 @@
 
 #include <ESP8266WiFi.h>
 #include <WString.h>
+
 #include "debug.h"
 #include "wifi.h"
 #include "timers.h"
@@ -88,7 +89,7 @@ static void start_ap_mode () {
 	WiFi.mode(WIFI_AP);
 	WiFi.softAP(config::config.hostname);
 	//WiFi.printDiag(Serial);
-	PRINTF("started AP mode at %s\n", wifi_ip4().c_str());
+	PRINTF("started AP mode at 192.168.4.1\n");	// %s\n", wifi_ip4().c_str());
 	// If there are any known SSIDs, revert to station mode after a while
 	if (config::ssidCount() > 0) {
 		timers::setTimer(TIMER_STOP_AP_MODE, 15*60*1000, stop_ap_mode);
@@ -102,6 +103,22 @@ void stop_ap_mode () {
 	WiFi.softAPdisconnect(false);  // leave WiFi on
 	WiFi.mode(WIFI_STA);  // FIXME call start_sta  ??
 }
+
+// Called when SSID settings may have changed
+	void newSSIDs () {
+		/*
+	mode = WiFi.getMode();
+		if (config::ssidCount() == 0) {
+			go to AP mode if not already
+		} else {
+			if (in STA mode)
+				if current SSID is still in config
+					stay where we are
+				else
+					try the new SSIDs
+			else (in AP mode) -- try one of the new SSIDs
+			*/
+	}
 
 // Return the index (into config::config.wifi) of the current best network.
 // (or -1 if none available)
@@ -154,10 +171,9 @@ void start_sta_mode () {
 // (called via a timer, not direct from the loop)
 static void monitor_wifi () {
 	//PRINTF("monitor_wifi: mode is %i:%s, wifi_status is %i:%s\r\n", WiFi.getMode(), wifi_mode().c_str(), WiFi.status(), wifi_status().c_str());
-	PRINTF("monitor_wifi: mode is %i:%s, wifi_status is %i:%s\r\n", WiFi.getMode(), "??", WiFi.status(), "??");
+	PRINTF("monitor_wifi: mode is %i:%s, wifi_status is %i:%s\r\n", WiFi.getMode(), "??", WiFi.status(), wifi_status().c_str());
 	unsigned long delay = 10000; // default delay until running this function again
-	//	WiFi.mode(m): set mode to WIFI_AP, WIFI_STA, WIFI_AP_STA or WIFI_OFF
-	switch (WiFi.getMode()) { // : return current Wi-Fi mode (one out of four modes above)
+	switch (WiFi.getMode()) {
 		case WIFI_OFF:
 			// Shouldn't be off -- turn it on
 			PRINTLN("WiFi is off -- going to STA");
@@ -191,7 +207,6 @@ static void monitor_wifi () {
 			break;
 		default:
 			break;
-
 	}
 	// repeat...
 	timers::setTimer(TIMER_MONITOR_WIFI, delay, monitor_wifi);
@@ -227,9 +242,6 @@ void setup() {
 		WiFi.mode(WIFI_STA);
 	}
 
-	// FIXME this PRINTF causes repeated crashes: //PRINTF("wifi::setup: ssidCount = %n\n", config::ssidCount());
-	timers::setTimer(TIMER_MONITOR_WIFI, 5000, monitor_wifi);
-
 	// DON'T FORGET event handlers https://github.com/esp8266/Arduino/blob/master/doc/esp8266wifi/generic-class.rst#wifieventhandler
 	// TODO use events instead of the monitor thing
 	// e.g.:
@@ -242,6 +254,10 @@ void setup() {
 	stationConnectedHandler    = WiFi.onStationModeConnected(&onStationModeConnected);
 	stationDisconnectedHandler = WiFi.onStationModeDisconnected(&onStationModeDisconnected);
 	stationGotIPHandler        = WiFi.onStationModeGotIP(&onStationModeGotIP);
+
+	// FIXME this PRINTF causes repeated crashes: //PRINTF("wifi::setup: ssidCount = %n\n", config::ssidCount());
+	monitor_wifi();
+	//timers::setTimer(TIMER_MONITOR_WIFI, 5000, monitor_wifi);
 
 }
 

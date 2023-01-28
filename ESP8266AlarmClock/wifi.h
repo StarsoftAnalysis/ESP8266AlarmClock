@@ -7,7 +7,7 @@ namespace wifi {
 
 	void setup (void);
 
-	//void wifi_loop (void);
+	//void loop (void);
 
 	String wifi_ssid (void);
 	String wifi_ip4 (void);
@@ -16,6 +16,7 @@ namespace wifi {
 	int wifi_status_code ();
 	void stop_ap_mode ();
 	void start_sta_mode ();
+	void newSSIDs ();
 
 } // namespace
 
