@@ -11,6 +11,7 @@ const wifi_max = 3; // TODO make sure this matches WIFI_MAX
 let volume, volumeOutput, melody, tz, statusMsg, saveSettingsButton;
 let wifissid = Array(wifi_max);
 let wifipass = Array(wifi_max);
+let pwchanged = Array(wifi_max);
 let time = [];
 let set = [];
 
@@ -61,8 +62,10 @@ function saveSettings () {
     let wifissidvalues = new Array(wifi_max);    
     let wifipassvalues = new Array(wifi_max);    
     for (let i = 0; i < wifi_max; i++) {
-         wifissidvalues[i] = wifissid[i].value;
-         wifipassvalues[i] = wifipass[i].value;
+        wifissidvalues[i] = wifissid[i].value;
+        if (pwchanged[i]) {
+            wifipassvalues[i] = wifipass[i].value;
+        }
     }
     const jsonObject = {
         melody: melody.value,
@@ -88,6 +91,10 @@ function displaySettings (json) {
     volumeOutput.textContent = json["volume"];
     melody.value = json["melody"];
     tz.value = json["tz"];
+    for (let i = 0; i < wifi_max; i++) {
+         wifissid[i].value = json.wifissid[i];
+         wifipass[i].value = "*".repeat(json.wifipass[i]);
+    }
 }
 
 function getSettings(){
@@ -113,6 +120,8 @@ window.onload = function () {
     for (let i = 0; i < wifi_max; i++) {   // FIXME get WIFI_MAX somehow
         wifissid[i] = id("wifissid" + i);
         wifipass[i] = id("wifipass" + i);
+        pwchanged[i] = false;
+        wifipass[i].addEventListener("change", () => { pwchanged[i] = true; });
     }
     statusMsg = id("statusMsg");
 

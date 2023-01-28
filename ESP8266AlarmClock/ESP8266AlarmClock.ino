@@ -366,15 +366,21 @@ void handleSetSettings() {
         JsonArray ssids = doc["wifissid"].as<JsonArray>();
         JsonArray passes = doc["wifipass"].as<JsonArray>();
         for (size_t i = 0; i < WIFI_MAX; i++) {
-                newConfig.wifi[i].ssid[0] = '\0';
-                newConfig.wifi[i].pass[0] = '\0';
+            newConfig.wifi[i].ssid[0] = '\0';
+            newConfig.wifi[i].pass[0] = '\0';
             //wifi[i].ssid = "";
             //wifi[i].pass = "";
             if (ssids[i].as<String>() == "") {
                 // ssid cleared -- delete from config
             } else {
                 strlcpy(newConfig.wifi[ssidCount].ssid, ssids[i].as<String>().c_str(), sizeof(newConfig.wifi[i].ssid));
-                strlcpy(newConfig.wifi[ssidCount].pass, passes[i].as<String>().c_str(), sizeof(newConfig.wifi[i].pass));
+                if (passes[i] == nullptr) {
+                    // keep the old password
+                    strlcpy(newConfig.wifi[ssidCount].pass, config::config.wifi[ssidCount].pass, sizeof(newConfig.wifi[i].pass));
+                } else {
+                    // store the new password
+                    strlcpy(newConfig.wifi[ssidCount].pass, passes[i].as<String>().c_str(), sizeof(newConfig.wifi[i].pass));
+                }
                 if (strcmp(newConfig.wifi[ssidCount].ssid, config::config.wifi[ssidCount].ssid) != 0 ||
                     strcmp(newConfig.wifi[ssidCount].pass, config::config.wifi[ssidCount].pass) != 0    ) {
              //   if (wifi[i].ssid != config::config.wifi[i].ssid ||
@@ -440,10 +446,10 @@ void handleGetSettings() {
 
     JsonArray wifissid = json.createNestedArray("wifissid");
     JsonArray wifipass = json.createNestedArray("wifipass");
-    // FIXME don't send the passwords! -- maybe something the right length, with a way of saying "don't change the password" if the user hasn't typed anything
+    // Don't send the passwords! -- just the length
     for (int i = 0; i < WIFI_MAX; i++) {
         wifissid[i] = config::config.wifi[i].ssid;
-        wifipass[i] = config::config.wifi[i].pass;
+        wifipass[i] = strlen(config::config.wifi[i].pass);
     }
 
     String s;
