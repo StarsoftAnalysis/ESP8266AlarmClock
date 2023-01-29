@@ -738,6 +738,8 @@ static void toggleNextAlarm (void) {
 
 void setup() {
 
+    timers::setup();
+
     Serial.begin(115200);
     Serial.println("\n=======================");
     Serial.setDebugOutput(true);
@@ -748,8 +750,6 @@ void setup() {
 
     display.setBrightness(2);
     display.setSegments(SEG_BOOT);
-
-    timers::setup();
 
     config::setup();
     config::loadConfig(); 
@@ -798,8 +798,6 @@ void setup() {
     //Serial.println("\nUTC: " + UTC.dateTime());
     TZ.setLocation(config::config.tz);
     //Serial.println("Local: " + TZ.dateTime());
-
-    timers::setup();
 
     // Load the alarm tune
     e8rtp::setup(BUZZER_PIN, config::config.volume, config::config.melody);

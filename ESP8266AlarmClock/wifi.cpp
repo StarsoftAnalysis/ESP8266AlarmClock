@@ -30,6 +30,9 @@ WiFiEventHandler stationConnectedHandler;
 WiFiEventHandler stationDisconnectedHandler;
 WiFiEventHandler stationGotIPHandler;
 
+static int disconnectCount = 0;
+static const int maxDisconnects = 3;
+
 // TODO change these to return C strings?
 String wifi_ssid () {
 	return WiFi.SSID();
@@ -101,24 +104,36 @@ static void start_ap_mode () {
 void stop_ap_mode () {
 	PRINTLN("stopping AP mode");
 	WiFi.softAPdisconnect(false);  // leave WiFi on
-	WiFi.mode(WIFI_STA);  // FIXME call start_sta  ??
+	WiFi.mode(WIFI_STA);  // FIXME call start_sta_mode()  ??
 }
 
 // Called when SSID settings may have changed
-	void newSSIDs () {
-		/*
-	mode = WiFi.getMode();
-		if (config::ssidCount() == 0) {
-			go to AP mode if not already
-		} else {
-			if (in STA mode)
-				if current SSID is still in config
-					stay where we are
-				else
-					try the new SSIDs
-			else (in AP mode) -- try one of the new SSIDs
-			*/
-	}
+void newSSIDs () {
+	PRINTLN("w::nS called, disconnecting...");
+	/*
+	   if already in STA mode, can probably just carry on
+	   if in AP mode, stop it
+
+	   or will monitor_wifi sort it out?
+	   */
+
+	// for now, just disconnect and let m_w sort it out:
+	WiFi.disconnect(false);	// don't turn off station mode
+
+
+	/*
+	   mode = WiFi.getMode();
+	   if (config::ssidCount() == 0) {
+	   go to AP mode if not already
+	   } else {
+	   if (in STA mode)
+	   if current SSID is still in config
+	   stay where we are
+	   else
+	   try the new SSIDs
+	   else (in AP mode) -- try one of the new SSIDs
+	   */
+}
 
 // Return the index (into config::config.wifi) of the current best network.
 // (or -1 if none available)
@@ -181,7 +196,7 @@ static void monitor_wifi () {
 			delay = 2000; // don't wait so long before trying again
 			break;
 		case WIFI_AP_STA:
-			// Shouldn't be that - go to just STA		// FIXME or maybe allow this mode
+			// Shouldn't be that - go to just STA
 			PRINTLN("WiFi is AP_STA, going to STA");
 			start_sta_mode();
 			break;
@@ -194,12 +209,15 @@ static void monitor_wifi () {
 				// cancel timer to try AP mode
 				timers::cancelTimer(TIMER_TRY_AP_MODE);
 			} else {
+				PRINTLN("m_w: STA but not connected, setting timer to try AP mode");
 				timers::setTimer(TIMER_TRY_AP_MODE, 1*60*1000, start_ap_mode, false); // false means don't restart if already running
+					why!?!?!?!
 				if (config::ssidCount() == 0) {
 					// No known SSIDs -- go to AP mode
 					// no -- wait for TIMER_TRY_AP_MODE  start_ap_mode();  // NO == may be too soon - wait a bit in case somethung comes into range
 				} else {
 					// Find best available SSID and connect to it (async)
+					PRINTLN("\t...and calling start_sta_mode()");
 					start_sta_mode();
 					delay = 20000;
 				}
@@ -209,6 +227,7 @@ static void monitor_wifi () {
 			break;
 	}
 	// repeat...
+	PRINTF("m_w: setting timer for %lums\n", delay);
 	timers::setTimer(TIMER_MONITOR_WIFI, delay, monitor_wifi);
 }
 
@@ -216,43 +235,49 @@ static void monitor_wifi () {
 // for what's in the various evt structs
 static void onStationModeConnected (const WiFiEventStationModeConnected& evt) {
 	PRINTF("Station connected to SSID %s\n", evt.ssid.c_str());
+	disconnectCount = 0;
 	//PRINTLN(macToString(evt.mac));
 }
 
-// enum WiFiDisconnectReason { 
-//     WIFI_DISCONNECT_REASON_UNSPECIFIED              = 1, 
-//     WIFI_DISCONNECT_REASON_AUTH_EXPIRE              = 2, 
-//     WIFI_DISCONNECT_REASON_AUTH_LEAVE               = 3, 
-//     WIFI_DISCONNECT_REASON_ASSOC_EXPIRE             = 4, 
-//     WIFI_DISCONNECT_REASON_ASSOC_TOOMANY            = 5, 
-//     WIFI_DISCONNECT_REASON_NOT_AUTHED               = 6, 
-//     WIFI_DISCONNECT_REASON_NOT_ASSOCED              = 7, 
-//     WIFI_DISCONNECT_REASON_ASSOC_LEAVE              = 8, 
-//     WIFI_DISCONNECT_REASON_ASSOC_NOT_AUTHED         = 9, 
-//     WIFI_DISCONNECT_REASON_DISASSOC_PWRCAP_BAD      = 10,  /* 11h */ 
-//     WIFI_DISCONNECT_REASON_DISASSOC_SUPCHAN_BAD     = 11,  /* 11h */ 
-//     WIFI_DISCONNECT_REASON_IE_INVALID               = 13,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_MIC_FAILURE              = 14,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_4WAY_HANDSHAKE_TIMEOUT   = 15,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_GROUP_KEY_UPDATE_TIMEOUT = 16,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_IE_IN_4WAY_DIFFERS       = 17,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_GROUP_CIPHER_INVALID     = 18,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_PAIRWISE_CIPHER_INVALID  = 19,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_AKMP_INVALID             = 20,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_UNSUPP_RSN_IE_VERSION    = 21,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_INVALID_RSN_IE_CAP       = 22,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_802_1X_AUTH_FAILED       = 23,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_CIPHER_SUITE_REJECTED    = 24,  /* 11i */ 
-//     WIFI_DISCONNECT_REASON_BEACON_TIMEOUT           = 200, 
-//     WIFI_DISCONNECT_REASON_NO_AP_FOUND              = 201, 
-//     WIFI_DISCONNECT_REASON_AUTH_FAIL                = 202, 
-//     WIFI_DISCONNECT_REASON_ASSOC_FAIL               = 203, 
-//     WIFI_DISCONNECT_REASON_HANDSHAKE_TIMEOUT        = 204, 
+// From ~/.arduino15/packages/esp8266/hardware/esp8266/2.7.4/libraries/ESP8266WiFi/src/WiFiType.h:
+// enum WiFiDisconnectReason {
+//     WIFI_DISCONNECT_REASON_UNSPECIFIED              = 1,
+//     WIFI_DISCONNECT_REASON_AUTH_EXPIRE              = 2,
+//     WIFI_DISCONNECT_REASON_AUTH_LEAVE               = 3,
+//     WIFI_DISCONNECT_REASON_ASSOC_EXPIRE             = 4,
+//     WIFI_DISCONNECT_REASON_ASSOC_TOOMANY            = 5,
+//     WIFI_DISCONNECT_REASON_NOT_AUTHED               = 6,
+//     WIFI_DISCONNECT_REASON_NOT_ASSOCED              = 7,
+//     WIFI_DISCONNECT_REASON_ASSOC_LEAVE              = 8,
+//     WIFI_DISCONNECT_REASON_ASSOC_NOT_AUTHED         = 9,
+//     WIFI_DISCONNECT_REASON_DISASSOC_PWRCAP_BAD      = 10,  /* 11h */
+//     WIFI_DISCONNECT_REASON_DISASSOC_SUPCHAN_BAD     = 11,  /* 11h */
+//     WIFI_DISCONNECT_REASON_IE_INVALID               = 13,  /* 11i */
+//     WIFI_DISCONNECT_REASON_MIC_FAILURE              = 14,  /* 11i */
+//     WIFI_DISCONNECT_REASON_4WAY_HANDSHAKE_TIMEOUT   = 15,  /* 11i */
+//     WIFI_DISCONNECT_REASON_GROUP_KEY_UPDATE_TIMEOUT = 16,  /* 11i */
+//     WIFI_DISCONNECT_REASON_IE_IN_4WAY_DIFFERS       = 17,  /* 11i */
+//     WIFI_DISCONNECT_REASON_GROUP_CIPHER_INVALID     = 18,  /* 11i */
+//     WIFI_DISCONNECT_REASON_PAIRWISE_CIPHER_INVALID  = 19,  /* 11i */
+//     WIFI_DISCONNECT_REASON_AKMP_INVALID             = 20,  /* 11i */
+//     WIFI_DISCONNECT_REASON_UNSUPP_RSN_IE_VERSION    = 21,  /* 11i */
+//     WIFI_DISCONNECT_REASON_INVALID_RSN_IE_CAP       = 22,  /* 11i */
+//     WIFI_DISCONNECT_REASON_802_1X_AUTH_FAILED       = 23,  /* 11i */
+//     WIFI_DISCONNECT_REASON_CIPHER_SUITE_REJECTED    = 24,  /* 11i */
+//     WIFI_DISCONNECT_REASON_BEACON_TIMEOUT           = 200,
+//     WIFI_DISCONNECT_REASON_NO_AP_FOUND              = 201,
+//     WIFI_DISCONNECT_REASON_AUTH_FAIL                = 202,
+//     WIFI_DISCONNECT_REASON_ASSOC_FAIL               = 203,
+//     WIFI_DISCONNECT_REASON_HANDSHAKE_TIMEOUT        = 204,
 // };
 static void onStationModeDisconnected (const WiFiEventStationModeDisconnected& evt) {
 	PRINTF("Station disconnected from SSID %s with reason code %d\n", evt.ssid.c_str(), evt.reason);
-	// TODO count disconnections -- if too many, go back to AP mode e.g. password is wrong seems to give 15
-	//PRINTLN(macToString(evt.mac));
+	// Count disconnections -- if too many, go back to AP mode e.g. password is wrong seems to give 15
+	if (disconnectCount > maxDisconnects) {
+		PRINTLN("oSMD: too many disconnects");
+		start_ap_mode();
+	}
+	disconnectCount += 1;
 }
 
 // See https://github.com/esp8266/Arduino/blob/master/cores/esp8266/IPAddress.h re IPAddress class

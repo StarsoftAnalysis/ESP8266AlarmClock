@@ -48,11 +48,14 @@ namespace timers {
 			Serial.printf("setTimer: invalid id %i ignored\r\n", id);
 			return;
 		}
-		if (timers[id].fn == NULL  ||      // not already set 
-				force                     ) {  // restart even if running
+		if (timers[id].fn == nullptr ||      // not already set 
+			force                       ) {  // restart even if running
+			PRINTF("t::sT setting id=%d delay=%lu fn=%p force=%d\n", id, delay, fn, force);
 			timers[id].start = millis();
 			timers[id].delay = delay;
 			timers[id].fn = fn;
+		} else {
+			PRINTF("t::sT NOT setting id=%d delay=%lu fn=%p force=%d\n", id, delay, fn, force);
 		}
 	}
 
@@ -61,22 +64,24 @@ namespace timers {
 			Serial.printf("cancelTimer: invalid id %i ignored\r\n", id);
 			return;
 		}
-		timers[id].fn = NULL;
+		timers[id].fn = nullptr;
 	}
 
 	// Initialise the timers (as all empty)
 	void setup () {
 		for (int i = 0; i < TIMERCOUNT; i++) {
-			timers[i].fn = NULL;
+			timers[i].fn = nullptr;
 		}
 	}
 
 	void loop () {
+		//PRINTF("t::l TC=%d\n", TIMERCOUNT);
 		for (int i = 0; i < TIMERCOUNT; i++) {
-			if (timers[i].fn != NULL) {
+			if (timers[i].fn != nullptr) {
 				if (millis() - timers[i].start > timers[i].delay) {
+					PRINTF("t::l running timers[%d].fn once\n", i);
 					TimerFn fncopy = timers[i].fn;
-					timers[i].fn = NULL;    // just run it once
+					timers[i].fn = nullptr;    // just run it once
 					fncopy();
 				}
 			}
