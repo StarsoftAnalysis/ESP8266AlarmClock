@@ -107,9 +107,11 @@ void stop_ap_mode () {
 	WiFi.mode(WIFI_STA);  // FIXME call start_sta_mode()  ??
 }
 
+// FIXME don't need this -- handled by m_w
 // Called when SSID settings may have changed
 void newSSIDs () {
-	PRINTLN("w::nS called, disconnecting...");
+	PRINTLN("w::nS called, does nothing");
+	//PRINTLN("w::nS called, disconnecting...");
 	/*
 	   if already in STA mode, can probably just carry on
 	   if in AP mode, stop it
@@ -118,7 +120,7 @@ void newSSIDs () {
 	   */
 
 	// for now, just disconnect and let m_w sort it out:
-	WiFi.disconnect(false);	// don't turn off station mode
+	//WiFi.disconnect(false);	// don't turn off station mode
 
 
 	/*
@@ -211,7 +213,6 @@ static void monitor_wifi () {
 			} else {
 				PRINTLN("m_w: STA but not connected, setting timer to try AP mode");
 				timers::setTimer(TIMER_TRY_AP_MODE, 1*60*1000, start_ap_mode, false); // false means don't restart if already running
-					why!?!?!?!
 				if (config::ssidCount() == 0) {
 					// No known SSIDs -- go to AP mode
 					// no -- wait for TIMER_TRY_AP_MODE  start_ap_mode();  // NO == may be too soon - wait a bit in case somethung comes into range

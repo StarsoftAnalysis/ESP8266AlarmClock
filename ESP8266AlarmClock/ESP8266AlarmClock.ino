@@ -42,9 +42,6 @@
 
 // 21/9/21: This is dev branch -- pre-async, new progress from here as 0.2.0...
 
-// FIXME:
-// * monitor_wifi not getting called
-
 // TODO:
 // * put volume on main alarm page
 // * --:-- is not 00:00 - need to completely unset an alarm so that the button doesn't set it

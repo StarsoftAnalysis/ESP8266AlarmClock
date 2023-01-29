@@ -67,7 +67,7 @@ const char settingspage[] PROGMEM = R"=====(
                     <h4>WiFi Network 2</h4>
                     <p><label for="wifissid1">SSID:</label> <input type="text" name=wifissid1 id="wifissid1"> 
                     <label for="wifipass1">Password:</label> <input type="password" name=wifipass1 id="wifipass1">
-                    <h4>WiFi Network 2</h4>
+                    <h4>WiFi Network 3</h4>
                     <p><label for="wifissid2">SSID:</label> <input type="text" name=wifissid2 id="wifissid2">
                     <label for="wifipass2">Password:</label> <input type="password" name=wifipass2 id="wifipass2">
 
