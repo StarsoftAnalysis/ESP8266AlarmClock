@@ -30,7 +30,7 @@ const char mainpage[] PROGMEM = R"=====(
     <link href="/bootstrapcss" rel=stylesheet>
 
     <script src="/bootstrapjs"></script>
-    <script src="/js" xdefer></script>
+    <script src="/mainjs"></script>
 
 </head>
 
@@ -85,6 +85,11 @@ const char mainpage[] PROGMEM = R"=====(
                 <td><input id="set6" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Saturday"</td>
             </tr> 
           </table>
+        </div>
+
+        <div class="col-auto">
+          <p class="h4 mt-3"><label for="volume">Volume:</label> <output for="volume" id="volumeOutput"></output>
+          <input class="form-control" type="range" name="volume" id="volume" min="0" max="11" step="1" value="5">
         </div>
 
         <div class="col-auto">

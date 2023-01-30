@@ -125,11 +125,6 @@ window.onload = function () {
     }
     statusMsg = id("statusMsg");
 
-    volumeOutput.textContent = volume.value;
-    volume.addEventListener('input', function() {
-        volumeOutput.textContent = volume.value;
-    });
-
     saveSettingsButton.addEventListener("click", saveSettings);
     getSettings();
 

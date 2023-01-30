@@ -50,12 +50,12 @@ namespace timers {
 		}
 		if (timers[id].fn == nullptr ||      // not already set 
 			force                       ) {  // restart even if running
-			PRINTF("t::sT setting id=%d delay=%lu fn=%p force=%d\n", id, delay, fn, force);
+			PRINTF("t::sT setting id=%d delay=%u fn=%p force=%d\n", id, delay, fn, force);
 			timers[id].start = millis();
 			timers[id].delay = delay;
 			timers[id].fn = fn;
 		} else {
-			PRINTF("t::sT NOT setting id=%d delay=%lu fn=%p force=%d\n", id, delay, fn, force);
+			PRINTF("t::sT NOT setting id=%d delay=%u fn=%p force=%d\n", id, delay, fn, force);
 		}
 	}
 

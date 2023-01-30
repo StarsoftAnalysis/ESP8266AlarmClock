@@ -153,8 +153,8 @@
 #include "mainpage.h"
 // Defines "const char settingspage[]":
 #include "settingspage.h"
-// Defines "const char js[]":
-#include "js.h"
+// Defines "const char mainjs[]":
+#include "mainjs.h"
 // Defines "const char settingsjs[]":
 #include "settingsjs.h"
 // Bootstrap 5 CSS and JS
@@ -235,8 +235,8 @@ void handleSettings() {
     server.send(200, "text/html", settingspage);
 }
 void handleJS() {
-    PRINTF("Sending '/js' length %d\n", strlen_P(js));
-    server.send(200, "text/javascript", js);
+    PRINTF("Sending '/mainjs' length %d\n", strlen_P(mainjs));
+    server.send(200, "text/javascript", mainjs);
 }
 void handleSettingsJS() {
     PRINTF("Sending '/settingsjs' length %d\n", strlen_P(settingsjs));
@@ -250,7 +250,7 @@ void handleBootstrapCSS() {
 }
 
 void handleNotFound() {
-    char message[] = "File Not Found";
+    char message[] = "hNF: 404";
     PRINTLN(message);
     server.send(404, "text/plain", message);
 }
@@ -264,6 +264,7 @@ void addAlarmToJsonDoc(DynamicJsonDocument *json) {
         obj["alarmTime"] = timeString;
         obj["alarmSet"] = (config::config.alarmDay[i].set ? "1" : "0");
     }
+    (*json)["volume"] = config::config.volume;
 }
 
 void handleGetData () {
@@ -311,6 +312,9 @@ void handleSetAlarm() {
             newConfig.alarmDay[i].set = (doc["alarmSet"][i] == "1");
         }
     }
+    if (doc.containsKey("volume")) {
+        newConfig.volume = doc["volume"];
+    }
     storeConfig(&newConfig);    // also copies newConfig to config
 
     // FIXME if unexpected stuff sent, return non-200
@@ -327,9 +331,6 @@ void handleSetSettings() {
     //Serial.println("hGA: args: ", server.arg("plain"));
 
     // Test for existence to avoid losing old values
-    if (doc.containsKey("volume")) {
-        newConfig.volume = doc["volume"];
-    }
     if (doc.containsKey("melody")) {
         strlcpy(newConfig.melody, doc["melody"], MELODY_MAX);
     }
@@ -437,7 +438,6 @@ void handleGetSettings() {
 
     DynamicJsonDocument json(1512); // FIXME tune this
 
-    json["volume"] = config::config.volume;
     json["melody"] = String(config::config.melody);
     json["tz"] = String(config::config.tz);
 
@@ -770,7 +770,7 @@ void setup() {
     // HTTP Server
     server.on("/", handleMain);
     server.on("/settings", handleSettings);
-    server.on("/js", handleJS);
+    server.on("/mainjs", handleJS);
     server.on("/settingsjs", handleSettingsJS);
     server.on("/bootstrapjs", handleBootstrapJS);
     server.on("/bootstrapcss", handleBootstrapCSS);
