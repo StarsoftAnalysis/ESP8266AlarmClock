@@ -11,7 +11,6 @@ namespace wifi {
 
 	String wifi_ssid (void);
 	String wifi_ip4 (void);
-	String wifi_ip6 (void);
 	String wifi_status (void);
 	int wifi_status_code ();
 	void stop_ap_mode ();

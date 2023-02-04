@@ -43,7 +43,6 @@
 // 21/9/21: This is dev branch -- pre-async, new progress from here as 0.2.0...
 
 // TODO:
-// * put volume on main alarm page
 // * --:-- is not 00:00 - need to completely unset an alarm so that the button doesn't set it
 // * getData to also get display status, not just time e.g. boot Wifi 55 etc.  -- send what's on the display as text e.g. "12:34"
 //     and  display status e.g. 'Alarm ringing', and 'Time to next alarm' on webpage
@@ -107,6 +106,7 @@
 // * OTA updates
 // * get rid of OTA updates (to allow async etc.)
 // * allow user to cancel alarm before it goes off
+// * put volume on main alarm page
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -317,8 +317,6 @@ void handleSetAlarm() {
     }
     storeConfig(&newConfig);    // also copies newConfig to config
 
-    // FIXME if unexpected stuff sent, return non-200
-    // FIXME supply sensible defaults e.g. to melody
     server.send(200, "text/html", "OK");
 }
 
@@ -414,24 +412,12 @@ void handleSetSettings() {
 }
 
 void handleGetAlarm() {
-
     DynamicJsonDocument json(1000); // FIXME tune this
     addAlarmToJsonDoc(&json);
-/*
-    JsonArray days = json.createNestedArray("alarmDay");
-    for (int i = 0; i < 7; i++) {
-        JsonObject obj = days.createNestedObject();
-        char timeString[6];
-        sprintf(timeString, "%02d:%02d", config::config.alarmDay[i].hour, config::config.alarmDay[i].minute);
-        obj["alarmTime"] = timeString;
-        obj["alarmSet"] = (config::config.alarmDay[i].set ? "1" : "0");
-    }
-*/
     String s;
     serializeJson(json, s);
     Serial.printf("hGA: sending %s\n", s.c_str());
     server.send(200, "text/plain", s);
-
 }
 
 void handleGetSettings() {
@@ -739,7 +725,7 @@ void setup() {
 
     Serial.begin(115200);
     Serial.println("\n=======================");
-    Serial.setDebugOutput(true);
+    Serial.setDebugOutput(false);
 
     //Onboard LED port Direction output
     pinMode(LED_PIN, OUTPUT); 

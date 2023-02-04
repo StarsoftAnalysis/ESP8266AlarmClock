@@ -42,11 +42,6 @@ String wifi_ip4 () {
 	return WiFi.localIP().toString();
 }
 
-String wifi_ip6 () {
-	return "(unknown)";
-	//return WiFi.localIPv6().toString();
-}
-
 // exported
 int wifi_status_code () {
 	return (int)WiFi.status();
@@ -110,7 +105,6 @@ void stop_ap_mode () {
 // FIXME don't need this -- handled by m_w
 // Called when SSID settings may have changed
 void newSSIDs () {
-	PRINTLN("w::nS called, does nothing");
 	//PRINTLN("w::nS called, disconnecting...");
 	/*
 	   if already in STA mode, can probably just carry on
@@ -123,18 +117,25 @@ void newSSIDs () {
 	//WiFi.disconnect(false);	// don't turn off station mode
 
 
-	/*
-	   mode = WiFi.getMode();
-	   if (config::ssidCount() == 0) {
-	   go to AP mode if not already
-	   } else {
-	   if (in STA mode)
-	   if current SSID is still in config
-	   stay where we are
-	   else
-	   try the new SSIDs
-	   else (in AP mode) -- try one of the new SSIDs
-	   */
+	//int mode = WiFi.getMode();
+	if (config::ssidCount() == 0) {
+		PRINTLN("nS: no SSIDs, going to AP mode");
+		start_ap_mode();
+	} else {
+		PRINTLN("nS: SSIDs, going to STA mode");
+		start_sta_mode();
+		/*
+		if (mode == WIFI_STA) {
+			// if current SSID is still in config
+			ssid = 
+				stay where we are
+			else
+				try the new SSIDs
+		} else { //  (in AP mode) -- try one of the new SSIDs
+			start_sta_mode();
+		}
+		*/
+	}
 }
 
 // Return the index (into config::config.wifi) of the current best network.
@@ -176,6 +177,7 @@ static void connect_best_wifi (int networksFound) {
 		WiFi.begin(config::config.wifi[best_ssid_index].ssid, config::config.wifi[best_ssid_index].pass);
 	} else {
 		// what? stay in whatever mode we're in...
+		PRINTLN("cbw: no best SSID");
 	}
 }
 
@@ -189,6 +191,7 @@ void start_sta_mode () {
 static void monitor_wifi () {
 	//PRINTF("monitor_wifi: mode is %i:%s, wifi_status is %i:%s\r\n", WiFi.getMode(), wifi_mode().c_str(), WiFi.status(), wifi_status().c_str());
 	PRINTF("monitor_wifi: mode is %i:%s, wifi_status is %i:%s\r\n", WiFi.getMode(), "??", WiFi.status(), wifi_status().c_str());
+	//WiFi.printDiag(Serial);
 	unsigned long delay = 10000; // default delay until running this function again
 	switch (WiFi.getMode()) {
 		case WIFI_OFF:
@@ -203,25 +206,26 @@ static void monitor_wifi () {
 			start_sta_mode();
 			break;
 		case WIFI_AP:
-			// carry on in AP mode until user supplies details (or timeout)
+			// carry on in AP mode until user supplies details (will call newSSIDs()) (or timeout -- FIXME what timeout?)
 			break;
 		case WIFI_STA:
 			if (WiFi.isConnected()) {
+				PRINTLN("m_w: STA, connected");
 				delay = 30000;
-				// cancel timer to try AP mode
+				// cancel timer to try AP mode  FIXME do we still use that timer???
 				timers::cancelTimer(TIMER_TRY_AP_MODE);
 			} else {
-				PRINTLN("m_w: STA but not connected, setting timer to try AP mode");
-				timers::setTimer(TIMER_TRY_AP_MODE, 1*60*1000, start_ap_mode, false); // false means don't restart if already running
 				if (config::ssidCount() == 0) {
 					// No known SSIDs -- go to AP mode
-					// no -- wait for TIMER_TRY_AP_MODE  start_ap_mode();  // NO == may be too soon - wait a bit in case somethung comes into range
+					PRINTLN("m_w: STA, SSIDs, not connect: starting AP mode");
+					//timers::setTimer(TIMER_TRY_AP_MODE, 1*60*1000, start_ap_mode, false); // false means don't restart if already running
+					start_ap_mode();
 				} else {
 					// Find best available SSID and connect to it (async)
-					PRINTLN("\t...and calling start_sta_mode()");
+					PRINTLN("m_w: STA, no SSIDs, not connected: starting STA mode");
 					start_sta_mode();
-					delay = 20000;
 				}
+				delay = 20000;
 			}
 			break;
 		default:
@@ -313,6 +317,7 @@ void setup() {
 	stationGotIPHandler        = WiFi.onStationModeGotIP(&onStationModeGotIP);
 
 	// FIXME this PRINTF causes repeated crashes: //PRINTF("wifi::setup: ssidCount = %n\n", config::ssidCount());
+
 	monitor_wifi();
 	//timers::setTimer(TIMER_MONITOR_WIFI, 5000, monitor_wifi);
 

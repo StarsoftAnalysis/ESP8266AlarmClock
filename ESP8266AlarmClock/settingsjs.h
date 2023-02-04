@@ -8,7 +8,7 @@ const msgFadeTime = 5000;
 const wifi_max = 3; // TODO make sure this matches WIFI_MAX
 
 // Fields by id 
-let volume, volumeOutput, melody, tz, statusMsg, saveSettingsButton;
+let melody, tz, statusMsg, saveSettingsButton;
 let wifissid = Array(wifi_max);
 let wifipass = Array(wifi_max);
 let pwchanged = Array(wifi_max);
@@ -69,7 +69,6 @@ function saveSettings () {
     }
     const jsonObject = {
         melody: melody.value,
-        volume: volume.value,
         tz: tz.value,
         wifissid: wifissidvalues,
         wifipass: wifipassvalues,
@@ -85,10 +84,6 @@ function saveSettings () {
 }
 
 function displaySettings (json) {
-    //var json = JSON.parse(data);
-    //console.log("displaySettings got %s i.e. %s", data, json);
-    volume.value = json["volume"];
-    volumeOutput.textContent = json["volume"];
     melody.value = json["melody"];
     tz.value = json["tz"];
     for (let i = 0; i < wifi_max; i++) {
@@ -112,8 +107,6 @@ window.onload = function () {
     const id = document.getElementById.bind(document);
     const cname = document.getElementsByClassName.bind(document);
 
-    volume = id("volume");
-    volumeOutput = id("volumeOutput");
     melody = id("melody");
     tz = id("tz");
     saveSettingsButton = id("saveSettings");

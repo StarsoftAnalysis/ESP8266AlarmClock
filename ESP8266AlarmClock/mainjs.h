@@ -1,6 +1,6 @@
 const char mainjs[] PROGMEM = R"=====(
 
-let volume, volumeOutput, statusMsg, saveAlarmButton, adcValue, wifiValue, currentTime;
+let volume, volumeOutput, statusMsg, setAlarmButton, adcValue, wifiValue, currentTime;
 let time = [];
 let set = [];
 let alarmFieldChanged = false;  // True if user has changed one the alarm fields since last time they were set.
@@ -44,35 +44,30 @@ function showWaiting (flag) {
     }
 }
 
-function saveAlarm() {
-
+function setAlarm() {
     if (fetchingTimer) {
         showWaiting(true);
         // Try again in a moment
-        setTimeout(saveAlarm, 0);
+        setTimeout(setAlarm, 0);
         return;
     }
-    alreadyFetching("saveAlarm");
+    alreadyFetching("setAlarm");
     showWaiting(false);
-
-    //var parms = "";
     const jsonObject = { 
         alarmTime: [],
         alarmSet: [],
+        volume: volume.value,
     };
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
         if (!alarmTime) {
             alarmTime = "00:00";
         }
-        //parms += "&alarmTime" + dy + "=" + alarmTime + ";";
-        //parms += "&alarmSet"  + dy + "=" + (set[dy].checked ? "1" : "0") + ";"
         jsonObject.alarmTime[dy] = alarmTime;
         jsonObject.alarmSet[dy] = (set[dy].checked ? "1" : "0"); 
     }
     
     fetch("/setAlarm", { method: 'POST', body: JSON.stringify(jsonObject), headers: { 'Content-Type': 'application/json' } })
-    //fetch("/setAlarm?" + parms) // , { method: 'GET', headers: { 'Content-Type': 'text/plain' } })
     .then(alarmSuccess);
 }
 
@@ -142,7 +137,7 @@ window.onload = function () {
     volume = id("volume");
     volumeOutput = id("volumeOutput");
     statusMsg = id("statusMsg");
-    saveAlarmButton = id("saveAlarm");
+    setAlarmButton = id("setAlarm");
     adcValue = id("ADCValue");
     wifiValue = id("WiFiValue");
     currentTime = id("currentTime");
@@ -153,11 +148,12 @@ window.onload = function () {
     alarmFieldChanged = false;
 
     getAlarm();
-    saveAlarmButton.addEventListener("click", saveAlarm);
+    setAlarmButton.addEventListener("click", setAlarm);
 
     volumeOutput.textContent = volume.value;
     volume.addEventListener('input', function() {
         volumeOutput.textContent = volume.value;
+        setAlarmFieldChanged();
     });
 
     // Detect any changes to alarm settings, to avoid overwriting user 
