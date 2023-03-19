@@ -1,9 +1,19 @@
 const char mainjs[] PROGMEM = R"=====(
 
-let volume, volumeOutput, statusMsg, setAlarmButton, adcValue, wifiValue, currentTime;
+// TODO:
+//  set0.style.backgroundColor = "red"   i.e. show if alarm has been overridden
+//  don't seem to need the whole alarmFieldChanged stuff -- but see NOTEs
+
+// NOTE:
+// * 'nextAlarmOverridden' is unusual -- it can get updated by button presses, so we get it in
+//   getData.  But changes here get saved with setAlarm.
+//   Oh!  If alarm can get set via buttons (future plans), then anything can change...
+
+let nao, nextAlarmIn, volume, volumeOutput, statusMsg, setAlarmButton, adcValue, wifiValue, currentTime;
 let time = [];
 let set = [];
-let alarmFieldChanged = false;  // True if user has changed one the alarm fields since last time they were set.
+let nextAlarmOverridden = false;  // FIXME this is superfluous -- use nao.checked
+let alarmFieldChanged = false;  // True if user has changed one of the alarm fields since last time they were set.
 let alarmFieldTimeout = 0;
 
 const fetchTimeout = 5000;
@@ -53,10 +63,12 @@ function setAlarm() {
     }
     alreadyFetching("setAlarm");
     showWaiting(false);
+    nextAlarmOverridden = nao.checked;
     const jsonObject = { 
         alarmTime: [],
         alarmSet: [],
         volume: volume.value,
+        nextAlarmOverridden: nextAlarmOverridden,
     };
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
@@ -108,9 +120,30 @@ function getData() {
         fetchingDone("getData");
         adcValue.textContent = json.lightLevel;
         wifiValue.textContent = json.wifiQuality;
-        if (currentTime) {
-            currentTime.textContent = json.time;
+        currentTime.textContent = json.time;
+        nextAlarmIndex = json.nextAlarmIndex;
+        if (!alarmFieldChanged) {
+            nextAlarmOverridden = json.nextAlarmOverridden;
+            nao.checked = nextAlarmOverridden;
+            naiMins = json.nextAlarmIn;
+            if (naiMins < 0) {
+                nextAlarmIn.textContent = "No alarm set in next 24 hours";
+            } else if (naiMins == 0) {
+                nextAlarmIn.textContent = "Alarm currently ringing";
+            } else {
+                naiHrs = naiMins / 60 | 0;  // integer division(!)
+                naiMins %= 60
+                naiString = "Next alarm in ";
+                if (naiHrs > 0) {
+                    naiString += `${naiHrs} hours and `;
+                }
+                naiString += `${naiMins} minutes`;
+                nextTime = document.getElementById("time" + nextAlarmIndex);
+                naiString += ` at ${nextTime.value}`;
+                nextAlarmIn.textContent = naiString;
+            }
         }
+
         // Also update alarms stuff -- could have been changed via buttons.
         // But don't if user is entering things.
         if (!alarmFieldChanged) {
@@ -131,19 +164,21 @@ function setAlarmFieldChanged () {
 
 window.onload = function () {
 
-    const id = document.getElementById.bind(document);
+    const id    = document.getElementById.bind(document);
     const cname = document.getElementsByClassName.bind(document);
 
-    volume = id("volume");
-    volumeOutput = id("volumeOutput");
-    statusMsg = id("statusMsg");
+    nao            = id("nao");
+    nextAlarmIn    = id("nextAlarmIn");
+    volume         = id("volume");
+    volumeOutput   = id("volumeOutput");
+    statusMsg      = id("statusMsg");
     setAlarmButton = id("setAlarm");
-    adcValue = id("ADCValue");
-    wifiValue = id("WiFiValue");
-    currentTime = id("currentTime");
+    adcValue       = id("ADCValue");
+    wifiValue      = id("WiFiValue");
+    currentTime    = id("currentTime");
     for (let i = 0; i < 7; i++) {
-        time[i] = id("time" + i);
-        set[i] = id("set" + i);
+        time[i]    = id("time" + i);
+        set[i]     = id("set" + i);
     }
     alarmFieldChanged = false;
 
@@ -160,7 +195,9 @@ window.onload = function () {
     // input with values from getData()
     const alarmFields = document.querySelectorAll('input.alarmField');
     alarmFields.forEach((af) => {
-        af.addEventListener('input', setAlarmFieldChanged);
+        // 'input' works except for the checkbox    ?
+        //af.addEventListener('input', setAlarmFieldChanged);
+        af.addEventListener('change', setAlarmFieldChanged);
     });
 
     // Call getData repeatedly

@@ -40,9 +40,16 @@
 
 ****************************************************************/
 
-// 21/9/21: This is dev branch -- pre-async, new progress from here as 0.2.0...
-
 // TODO:
+// * cancelling an upcoming alarm with the buttons cancels it for next week too!
+        // html/js: show if next alarm is overridden (and time to next alarm)
+        //          allow nextAlarmOverridden to be toggled
+        // put nextAlarmOverridden in the config
+        // remove the override when the alarm rings! so that it doesn't apply to the next alarm
+// * show version on display
+// * more delay on brightness to stop flashing
+// * send version to HTML via JS
+// * put alarmPauseTime etc onto settings page and into config
 // * --:-- is not 00:00 - need to completely unset an alarm so that the button doesn't set it
 // * getData to also get display status, not just time e.g. boot Wifi 55 etc.  -- send what's on the display as text e.g. "12:34"
 //     and  display status e.g. 'Alarm ringing', and 'Time to next alarm' on webpage
@@ -176,6 +183,9 @@
 
 // ------------------------
 
+// Set this in mainpage.h as well
+#define VERSION "0.2.3dev"
+
 TM1637Display display(CLK_PIN, DIO_PIN);
 
 ESP8266WebServer server(80);
@@ -201,6 +211,7 @@ static                     alarmStateEnum alarmState = alarmStateEnum::Off;
 static long unsigned       alarmStateStart;
 static int                 alarmRepeatCount;
 static int                 alarmSnoozeCount;
+static bool                nextAlarmOverridden;    // true if next alarm has been overridden
 // These could be user-configurable:    TODO
 static const long unsigned alarmPauseTime  = 60 * 1000;  // ms
 static const long unsigned alarmRingTime   = 60 * 1000;  // ms
@@ -255,6 +266,57 @@ void handleNotFound() {
     server.send(404, "text/plain", message);
 }
 
+// Get the index (into config.alarmDay) of the next set alarm. 
+// Returns -1 if there is no alarm in the next 24 hours.
+static int nextAlarmIndex (void) {
+    int next = -1;
+    // Get 'now' as day of week, hour, minute
+    int tdy = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
+    int tmw = (tdy + 1) % 7;     // tomorrow
+    int hr = TZ.hour();
+    int mn = TZ.minute();
+    config::alarmDetails_t today = config::config.alarmDay[tdy];
+    config::alarmDetails_t tomorrow = config::config.alarmDay[tmw];
+    if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
+        // Next alarm is later today
+        next = tdy;
+    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
+        // Next alarm is tomorrow
+        next = tmw;
+    }
+    //PRINTF("nAI: tdy=%d tmw=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d nao=%d\n", tdy, tmw, hr, mn, today.hour, today.minute, today.set, tomorrow.hour, tomorrow.minute, tomorrow.set, next, nextAlarmOverridden);
+    if (next >= 0 && (config::config.alarmDay[next].set /* FIXME ?? should do:  ^ nextAlarmOverridden */ )) {
+        // Return the index of the next set (or overridden) alarm
+        return next;
+    }
+    return -1;  
+}
+
+// Return number of minutes until next alarm (or -1 if none due in the next 24 hours)
+static long nextAlarmIn (void) {
+    int id = nextAlarmIndex();
+    if (id >= 0) {
+        config::alarmDetails_t alarm = config::config.alarmDay[id];
+        if (alarm.set ^ nextAlarmOverridden) {
+            int tdy = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
+            int hr = TZ.hour();
+            int mn = TZ.minute();
+            config::alarmDetails_t alarm = config::config.alarmDay[id];
+            if (id == tdy) {
+                // alarm is later today
+                long minutes = (alarm.hour - hr) * 60 + (alarm.minute - mn);
+                return minutes;
+            } else {
+                // alarm is tomorrow
+                long minutes = (23 - hr) * 60 + (59 - mn);   // time left today
+                minutes += alarm.hour * 60 + alarm.minute;   // time until alarm tomorrow
+                return minutes;
+            } 
+        }
+    } 
+    return -1;
+}
+
 void addAlarmToJsonDoc(DynamicJsonDocument *json) {
     JsonArray days = json->createNestedArray("alarmDay");
     for (int i = 0; i < 7; i++) {
@@ -274,12 +336,17 @@ void handleGetData () {
     int rssi = getWifiQuality();
     // Current time
     String time = TZ.dateTime("H:i");
+    // Next alarm overriden
+    // Next alarm time
 
     DynamicJsonDocument json(1512); // FIXME tune this
 
     json["lightLevel"] = String(a);
     json["wifiQuality"] = String(rssi);
     json["time"] = String(time);
+    json["nextAlarmIndex"] = nextAlarmIndex();
+    json["nextAlarmIn"] = nextAlarmIn();
+    json["nextAlarmOverridden"] = nextAlarmOverridden;
 
     // Also send alarm data
     addAlarmToJsonDoc(&json);
@@ -292,11 +359,11 @@ void handleGetData () {
 
 void handleSetAlarm() {
 
-    config::config_t newConfig = config::config;    // copy old config
+    config::config_t newConfig = config::config;    // copy of old config
 
     DynamicJsonDocument doc(512);
     deserializeJson(doc, server.arg("plain"));   // body
-    //Serial.println("hSA: args: ", server.arg("plain").c_str());
+    PRINTF("hSA: args: %s\n", server.arg("plain").c_str());
 
     // Test for existence to avoid losing old values
     if (doc.containsKey("alarmTime")) {
@@ -311,6 +378,12 @@ void handleSetAlarm() {
         for (int i = 0; i < 7; i++) {
             newConfig.alarmDay[i].set = (doc["alarmSet"][i] == "1");
         }
+    }
+    if (doc.containsKey("nextAlarmOverridden")) {
+        // This flag is just global, not in the config. FIXME 
+        PRINTF("hSA: nextAlarmOverridden was %d, setting to %s\n", nextAlarmOverridden, doc["nextAlarmOverridden"].as<String>().c_str());
+        nextAlarmOverridden = doc["nextAlarmOverridden"]; //.as<boolean>;
+        PRINTF("hSA: nextAlarmOverridden now %d\n", nextAlarmOverridden);
     }
     if (doc.containsKey("volume")) {
         newConfig.volume = doc["volume"];
@@ -515,26 +588,6 @@ static void setButtonStates (void) {
     buttonState.bButtonPressed = (buttonState.lButtonPressed && buttonState.rButtonPressed);
 }
 
-// Get the index (into config.alarmDay) of the next alarm. 
-// Returns -1 if there is no alarm in the next 24 hours.
-static int nextAlarmIndex (void) {
-    int next = -1;
-    // Get 'now' as day of week, hour, minute
-    int wd = TZ.weekday() - 1;    // 0 = Sunday  (ezTime has 1=Sunday)
-    int wd1 = (wd + 1) % 7;
-    int hr = TZ.hour();
-    int mn = TZ.minute();
-    config::alarmDetails_t today = config::config.alarmDay[wd];
-    config::alarmDetails_t tomorrow = config::config.alarmDay[wd1];
-    if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
-        next = wd;
-    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
-        next = wd1;
-    }
-    //PRINTF("nAI: wd=%d wd1=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d\n", wd, wd1, hr, mn, today.hour, today.minute, today.set, tomorrow.hour, tomorrow.minute, tomorrow.set, next);
-    return next;
-}
-
 // Calculate exponential moving average to smooth the light level readings.
 // From https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average
 static int exponentialMovingAverage (int value) {
@@ -568,7 +621,8 @@ static void checkForAlarm () {
             if (i >= 0) {
                 config::alarmDetails_t alarm = config::config.alarmDay[i];
                 //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
-                if (alarm.set && hr == alarm.hour && mn == alarm.minute) {
+                // Alarm is set in config XOR by being overridden
+                if ((alarm.set ^ nextAlarmOverridden) && hr == alarm.hour && mn == alarm.minute) {
                     // set time -- start ringing
                     alarmState = alarmStateEnum::Ringing;
                     alarmStateStart = now;  
@@ -689,20 +743,27 @@ static void checkForAlarm () {
 //    return;
 //}
 
+static bool nextAlarmSet (void) {
+    int i = nextAlarmIndex();
+    // There's an alarm due if it's set on the webpage XOR it's been toggled
+    bool set = (i >= 0) && (config::config.alarmDay[i].set ^ nextAlarmOverridden);
+    return set;
+}
+
 static void displayTime (void) {
 
     uint8_t digits[4];
     int hr = TZ.hour();
     int mn = TZ.minute();
-    digits[0] = (hr > 9) ? display.encodeDigit(hr / 10) : 0;    // 0 means blank
+    digits[0] = (hr > 9) ? display.encodeDigit(hr / 10) : 0;    // 0 means blank, just for this digit
     digits[1] = display.encodeDigit(hr % 10);
     digits[2] = display.encodeDigit(mn / 10);
     digits[3] = display.encodeDigit(mn % 10);
 
     // Toggle colon every second, but keep it on if the alarm is set
-    int i = nextAlarmIndex();
-    bool set = (i >= 0) && (config::config.alarmDay[i].set);
-    bool showColon = set || (TZ.second() % 2);
+    //int i = nextAlarmIndex();
+    //bool set = (i >= 0) && (config::config.alarmDay[i].set);
+    bool showColon = nextAlarmSet() || (TZ.second() % 2);
     if (showColon) {
         digits[1] |= 1 << 7;
     }
@@ -714,8 +775,10 @@ static void displayTime (void) {
 static void toggleNextAlarm (void) {
     int i = nextAlarmIndex();
     if (i >= 0) {
-        config::config.alarmDay[i].set ^= true;
-        PRINTF("tNA: next alarm toggled to %o (i=%d)\n", config::config.alarmDay[i].set, i);
+        //config::config.alarmDay[i].set ^= true;
+        nextAlarmOverridden ^= true;
+        //PRINTF("tNA: next alarm toggled to %o (i=%d)\n", config::config.alarmDay[i].set, i);
+        PRINTF("tNA: next alarm toggled to %o\n", nextAlarmOverridden);
     }
 }
 
@@ -817,7 +880,7 @@ void loop() {
             buttonState.lButtonPressed = true;
             buttonState.aButtonPressed = true;
         } else {
-            Serial.printf("echo: '%s'\n", input.c_str());
+            PRINTF("echo: '%s'\n", input.c_str());
         }
     }
 
