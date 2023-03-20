@@ -1,7 +1,6 @@
 const char mainjs[] PROGMEM = R"=====(
 
 // TODO:
-//  set0.style.backgroundColor = "red"   i.e. show if alarm has been overridden
 //  don't seem to need the whole alarmFieldChanged stuff -- but see NOTEs
 
 // NOTE:
@@ -9,10 +8,9 @@ const char mainjs[] PROGMEM = R"=====(
 //   getData.  But changes here get saved with setAlarm.
 //   Oh!  If alarm can get set via buttons (future plans), then anything can change...
 
-let nao, nextAlarmIn, volume, volumeOutput, statusMsg, setAlarmButton, adcValue, wifiValue, currentTime;
+let nextAlarmOverridden, nextAlarmIn, volume, volumeOutput, statusMsg, setAlarmButton, adcValue, wifiValue, currentTime;
 let time = [];
 let set = [];
-let nextAlarmOverridden = false;  // FIXME this is superfluous -- use nao.checked
 let alarmFieldChanged = false;  // True if user has changed one of the alarm fields since last time they were set.
 let alarmFieldTimeout = 0;
 
@@ -63,12 +61,11 @@ function setAlarm() {
     }
     alreadyFetching("setAlarm");
     showWaiting(false);
-    nextAlarmOverridden = nao.checked;
     const jsonObject = { 
         alarmTime: [],
         alarmSet: [],
         volume: volume.value,
-        nextAlarmOverridden: nextAlarmOverridden,
+        nextAlarmOverridden: nextAlarmOverridden.checked,
     };
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
@@ -123,8 +120,7 @@ function getData() {
         currentTime.textContent = json.time;
         nextAlarmIndex = json.nextAlarmIndex;
         if (!alarmFieldChanged) {
-            nextAlarmOverridden = json.nextAlarmOverridden;
-            nao.checked = nextAlarmOverridden;
+            nextAlarmOverridden.checked = json.nextAlarmOverridden;
             naiMins = json.nextAlarmIn;
             if (naiMins < 0) {
                 nextAlarmIn.textContent = "No alarm set in next 24 hours";
@@ -167,7 +163,7 @@ window.onload = function () {
     const id    = document.getElementById.bind(document);
     const cname = document.getElementsByClassName.bind(document);
 
-    nao            = id("nao");
+    nextAlarmOverridden = id("nextAlarmOverridden");
     nextAlarmIn    = id("nextAlarmIn");
     volume         = id("volume");
     volumeOutput   = id("volumeOutput");

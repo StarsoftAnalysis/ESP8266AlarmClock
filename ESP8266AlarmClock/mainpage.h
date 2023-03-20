@@ -94,7 +94,8 @@ const char mainpage[] PROGMEM = R"=====(
 
         <div class="col-auto">
           <h4 class="mt-3">Next Alarm</h4>
-          <p><span id=nextAlarmIn>...</span> Next Alarm Overridden? <input id="nao" class="form-check-input alarmField" type=checkbox aria-label="Next Alarm Overridden"></p>
+          <p><span id=nextAlarmIn>...</span></p>
+          <p>Next Alarm Overridden? <input id="nextAlarmOverridden" class="form-check-input alarmField" type=checkbox aria-label="Next Alarm Overridden"></p>
         </div>
 
         <div class="col-auto">

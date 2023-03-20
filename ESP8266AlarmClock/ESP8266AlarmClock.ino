@@ -41,11 +41,12 @@
 ****************************************************************/
 
 // TODO:
+// OH!  Can have two alarms in next 24 hours -- e.g. now 8pm, alarms for 11pm and 11am tomorrow -- how does this affect nextAlarmIndex etc.?
 // * cancelling an upcoming alarm with the buttons cancels it for next week too!
-        // html/js: show if next alarm is overridden (and time to next alarm)
+        // DONE html/js: show if next alarm is overridden (and time to next alarm)
         //          allow nextAlarmOverridden to be toggled
-        // put nextAlarmOverridden in the config
-        // remove the override when the alarm rings! so that it doesn't apply to the next alarm
+        // NO put nextAlarmOverridden in the config
+        // DONE remove the override when the alarm rings! so that it doesn't apply to the next alarm
 // * show version on display
 // * more delay on brightness to stop flashing
 // * send version to HTML via JS
@@ -285,7 +286,7 @@ static int nextAlarmIndex (void) {
         next = tmw;
     }
     //PRINTF("nAI: tdy=%d tmw=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d nao=%d\n", tdy, tmw, hr, mn, today.hour, today.minute, today.set, tomorrow.hour, tomorrow.minute, tomorrow.set, next, nextAlarmOverridden);
-    if (next >= 0 && (config::config.alarmDay[next].set /* FIXME ?? should do:  ^ nextAlarmOverridden */ )) {
+    if (next >= 0 && (config::config.alarmDay[next].set /* FIXME ?? should do:  ^ nextAlarmOverridden  --- seems OK without this */ )) {
         // Return the index of the next set (or overridden) alarm
         return next;
     }
@@ -380,7 +381,7 @@ void handleSetAlarm() {
         }
     }
     if (doc.containsKey("nextAlarmOverridden")) {
-        // This flag is just global, not in the config. FIXME 
+        // This flag is just global, not in the config.
         PRINTF("hSA: nextAlarmOverridden was %d, setting to %s\n", nextAlarmOverridden, doc["nextAlarmOverridden"].as<String>().c_str());
         nextAlarmOverridden = doc["nextAlarmOverridden"]; //.as<boolean>;
         PRINTF("hSA: nextAlarmOverridden now %d\n", nextAlarmOverridden);
@@ -629,6 +630,8 @@ static void checkForAlarm () {
                     alarmRepeatCount = 0;
                     alarmSnoozeCount = 0;
                     e8rtp::start();
+                    // cancel alarm override (whichever way it was toggled before)
+                    nextAlarmOverridden = false;
                     PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.minute);
                 }
             }
