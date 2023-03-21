@@ -4,11 +4,11 @@ const char mainjs[] PROGMEM = R"=====(
 //  don't seem to need the whole alarmFieldChanged stuff -- but see NOTEs
 
 // NOTE:
-// * 'nextAlarmOverridden' is unusual -- it can get updated by button presses, so we get it in
+// * 'nextAlarmCancelled' is unusual -- it can get updated by button presses, so we get it in
 //   getData.  But changes here get saved with setAlarm.
 //   Oh!  If alarm can get set via buttons (future plans), then anything can change...
 
-let nextAlarmOverridden, nextAlarmIn, volume, volumeOutput, statusMsg, setAlarmButton, adcValue, wifiValue, currentTime;
+let nextAlarmCancelled, nextSetAlarmIn, volume, volumeOutput, statusMsg, setAlarmButton, adcValue, wifiValue, currentTime;
 let time = [];
 let set = [];
 let alarmFieldChanged = false;  // True if user has changed one of the alarm fields since last time they were set.
@@ -65,7 +65,7 @@ function setAlarm() {
         alarmTime: [],
         alarmSet: [],
         volume: volume.value,
-        nextAlarmOverridden: nextAlarmOverridden.checked,
+        nextAlarmCancelled: nextAlarmCancelled.checked,
     };
     for (var dy = 0; dy < 7; dy++) {
         var alarmTime = time[dy].value;
@@ -118,32 +118,31 @@ function getData() {
         adcValue.textContent = json.lightLevel;
         wifiValue.textContent = json.wifiQuality;
         currentTime.textContent = json.time;
-        nextAlarmIndex = json.nextAlarmIndex;
-        if (!alarmFieldChanged) {
-            nextAlarmOverridden.checked = json.nextAlarmOverridden;
-            naiMins = json.nextAlarmIn;
-            if (naiMins < 0) {
-                nextAlarmIn.textContent = "No alarm set in next 24 hours";
-            } else if (naiMins == 0) {
-                nextAlarmIn.textContent = "Alarm currently ringing";
+        nextSetAlarmIndex = json.nextSetAlarmIndex;
+        if (nextSetAlarmIndex < 0) {
+            nextSetAlarmIn.textContent = "No alarm set in next 24 hours unless there's another one";
+        } else {
+            nsaiMins = json.nextSetAlarmIn;
+            if (nsaiMins == 0) {
+                nextSetAlarmIn.textContent = "Alarm currently ringing";
             } else {
-                naiHrs = naiMins / 60 | 0;  // integer division(!)
-                naiMins %= 60
-                naiString = "Next alarm in ";
-                if (naiHrs > 0) {
-                    naiString += `${naiHrs} hours and `;
+                nsaiHrs = nsaiMins / 60 | 0;  // integer division(!)
+                nsaiMins %= 60
+                nsaiString = "Next alarm in ";
+                if (nsaiHrs > 0) {
+                    nsaiString += `${nsaiHrs} hours and `;
                 }
-                naiString += `${naiMins} minutes`;
-                nextTime = document.getElementById("time" + nextAlarmIndex);
-                naiString += ` at ${nextTime.value}`;
-                nextAlarmIn.textContent = naiString;
+                nsaiString += `${nsaiMins} minutes`;
+                nextTime = document.getElementById("time" + nextSetAlarmIndex);
+                nsaiString += ` at ${nextTime.value}`;
+                nextSetAlarmIn.textContent = nsaiString;
             }
         }
-
         // Also update alarms stuff -- could have been changed via buttons.
         // But don't if user is entering things.
         if (!alarmFieldChanged) {
             displayAlarm(json);
+            nextAlarmCancelled.checked = json.nextAlarmCancelled;
         }
     })
     .catch(() => {});  // do nothing if the fetch failed
@@ -163,8 +162,8 @@ window.onload = function () {
     const id    = document.getElementById.bind(document);
     const cname = document.getElementsByClassName.bind(document);
 
-    nextAlarmOverridden = id("nextAlarmOverridden");
-    nextAlarmIn    = id("nextAlarmIn");
+    nextAlarmCancelled = id("nextAlarmCancelled");
+    nextSetAlarmIn    = id("nextSetAlarmIn");
     volume         = id("volume");
     volumeOutput   = id("volumeOutput");
     statusMsg      = id("statusMsg");
