@@ -50,6 +50,7 @@
         // DONE remove the override when the alarm rings! so that it doesn't apply to the next alarm
         // BETTER PLAN -- nextAlarmCancelled -- subtle difference
         // Deal with two alarms in next 24 hours
+        // OPtimise by calling nextSetAlarm... etc. every loop and storing the answer (displayAlarm calls it, and gets called every loop anyway)
 // * show version on display
 // * more delay on brightness to stop flashing
 // * send version to HTML via JS
@@ -271,7 +272,10 @@ void handleNotFound() {
 }
 
 // Get the index (into config.alarmDay) of the next set (and not cancelled) alarm.
-// Returns -1 if there is no alarm in the next 24 hours.
+// Returns -1 if there is no alarm set in the next 24 hours.
+// The cancellation applies to the next set alarm -- which may be tomorrow
+// even if there is an unset alarm later today.
+//STILL NOT SURE IF THIS IS RIGHT -- need a list of test cases
 static int nextSetAlarmIndex (void) {
     int next = -1;
     // Get 'now' as day of week, hour, minute
@@ -281,19 +285,21 @@ static int nextSetAlarmIndex (void) {
     int mn = TZ.minute();
     config::alarmDetails_t today = config::config.alarmDay[tdy];
     config::alarmDetails_t tomorrow = config::config.alarmDay[tmw];
-    if ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn))) {
-        // Next alarm is later today
-        next = tdy;
-    } else if ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn))) {
-        // Next alarm is tomorrow
-        next = tmw;
+    if ((today.set) && ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn)))) {
+        // Next set alarm is later today
+        if (!nextAlarmCancelled) {
+            next = tdy;
+        }
+    }
+    if ((next == -1) && (tomorrow.set) && ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn)))) {
+        // Next set alarm is tomorrow
+        if (!nextAlarmCancelled) {
+            next = tmw;
+        }
     }
     //PRINTF("nSAI: tdy=%d tmw=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d nac=%d\n", 
     //    tdy, tmw, hr, mn, today.hour, today.minute, today.set, tomorrow.hour, tomorrow.minute, tomorrow.set, next, nextAlarmCancelled);
-    if (next >= 0 && (config::config.alarmDay[next].set && !nextAlarmCancelled)) {
-        return next;
-    }
-    return -1;  
+    return next;
 }
 
 // Return number of minutes until next set and not cancelled alarm (or -1 if none due in the next 24 hours)
