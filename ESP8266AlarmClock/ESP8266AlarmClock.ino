@@ -51,6 +51,7 @@
         // BETTER PLAN -- nextAlarmCancelled -- subtle difference
         // Deal with two alarms in next 24 hours
         // OPtimise by calling nextSetAlarm... etc. every loop and storing the answer (displayAlarm calls it, and gets called every loop anyway)
+// * getNextAlarmIn() doesn't deal with daylight savings start/end -- does ezTime have the relevant functions?
 // * show version on display
 // * more delay on brightness to stop flashing
 // * send version to HTML via JS
@@ -191,6 +192,8 @@
 // Set this in mainpage.h as well
 #define VERSION "0.2.3dev"
 
+// Globals ------------------------
+
 TM1637Display display(CLK_PIN, DIO_PIN);
 
 ESP8266WebServer server(80);
@@ -216,13 +219,27 @@ static                     alarmStateEnum alarmState = alarmStateEnum::Off;
 static long unsigned       alarmStateStart;
 static int                 alarmRepeatCount;
 static int                 alarmSnoozeCount;
-static bool                nextAlarmCancelled;    // true if next alarm has been cancelled
 // These could be user-configurable:    TODO
 static const long unsigned alarmPauseTime  = 60 * 1000;  // ms
 static const long unsigned alarmRingTime   = 60 * 1000;  // ms
 static const int           alarmRepeatMax  = 3;
 static const int           alarmSnoozeMax  = 3;
 static const long unsigned alarmSnoozeTime = 60 * 1000;  // ms
+
+// 'Loop globals' -- get calculated each time round the loop in calcLoopGlobals() ------------------------
+
+static int  nextSetAlarmIndex  = -1;         // -1 means no alarm set
+static long nextSetAlarmIn     = -1;         // in minutes; -1 means no alarm set
+static bool nextAlarmCancelled = false;      // true if the next alarm has been cancelled
+static int  today    = 0;                    // today.  0 = Sunday  (ezTime has 1=Sunday)
+static int  tomorrow = 0;                    // tomorrow
+static int  nowHr    = 0;                    // current hour
+static int  nowMn    = 0;                    // current minute
+static config::alarmDetails_t nextSetAlarm;  // next alarm
+static config::alarmDetails_t alarmToday;    // today's alarm
+static config::alarmDetails_t alarmTomorrow; // tomorrow's alarm
+
+// ------------------------
  
 // converts the dBm to a range between 0 and 100%
 static int getWifiQuality() {
@@ -271,30 +288,28 @@ void handleNotFound() {
     server.send(404, "text/plain", message);
 }
 
-// Get the index (into config.alarmDay) of the next set (and not cancelled) alarm.
+// Get the index (into config.alarmDay) of the next set alarm.
 // Returns -1 if there is no alarm set in the next 24 hours.
-// The cancellation applies to the next set alarm -- which may be tomorrow
-// even if there is an unset alarm later today.  NO! -- it just applies to the next set alarm, ignoring cancellation (at this stage).
-//STILL NOT SURE IF THIS IS RIGHT -- need a list of test cases
-static int nextSetAlarmIndex (void) {
+// This does not take nextAlarmCancelled into account (and nor should it).
+static int getNextSetAlarmIndex (void) {
     int next = -1;
     // Get 'now' as day of week, hour, minute
-    int tdy = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
-    int tmw = (tdy + 1) % 7;     // tomorrow
-    int hr = TZ.hour();
-    int mn = TZ.minute();
-    config::alarmDetails_t today = config::config.alarmDay[tdy];
-    config::alarmDetails_t tomorrow = config::config.alarmDay[tmw];
-    if ((today.set) && ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn)))) {
+    //int tdy = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
+    //int tmw = (tdy + 1) % 7;     // tomorrow
+    //int hr = TZ.hour();
+    //int mn = TZ.minute();
+    //config::alarmDetails_t today = config::config.alarmDay[tdy];
+    //config::alarmDetails_t tomorrow = config::config.alarmDay[tmw];
+    if ((alarmToday.set) && ((alarmToday.hour > nowHr) || ((alarmToday.hour == nowHr) && (alarmToday.minute >= nowMn)))) {
         // Next set alarm is later today
         //if (!nextAlarmCancelled) {
-            next = tdy;
+            next = today;
         //}
     }
-    if ((next == -1) && (tomorrow.set) && ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn)))) {
+    if ((next == -1) && (alarmTomorrow.set) && ((alarmTomorrow.hour < nowHr) || ((alarmTomorrow.hour == nowHr) && (alarmTomorrow.minute < nowMn)))) {
         // Next set alarm is tomorrow
         //if (!nextAlarmCancelled) {
-            next = tmw;
+            next = tomorrow;
         //}
     }
     //PRINTF("nSAI: tdy=%d tmw=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d nac=%d\n", 
@@ -302,33 +317,48 @@ static int nextSetAlarmIndex (void) {
     return next;
 }
 
-// Return number of minutes until next set [and not cancelled] alarm (or -1 if none due in the next 24 hours)
-static long nextSetAlarmIn (void) {
-    int id = nextSetAlarmIndex();
-    if (id >= 0) {
-        config::alarmDetails_t alarm = config::config.alarmDay[id];
-        int tdy = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
-        int hr = TZ.hour();
-        int mn = TZ.minute();
-        if (id == tdy) {
+// Return number of minutes until next set alarm (or -1 if none due in the next 24 hours)
+// FIXME allow for daylight saving start or end between now and the alarm times.
+static long getNextSetAlarmIn (void) {
+    if (nextSetAlarmIndex >= 0) {
+        //config::alarmDetails_t alarm = config::config.alarmDay[nextSetAlarmIndex];
+        //int today = TZ.weekday() - 1;  // today  0 = Sunday  (ezTime has 1=Sunday)
+        //int hr = TZ.hour();
+        //int mn = TZ.minute();
+        if (nextSetAlarmIndex == today) {
             // alarm is later today
-            long minutes = (alarm.hour - hr) * 60 + (alarm.minute - mn);
+            long minutes = (nextSetAlarm.hour - nowHr) * 60 + (nextSetAlarm.minute - nowMn);
             return minutes;
         } else {
             // alarm is tomorrow
-            long minutes = (23 - hr) * 60 + (59 - mn);   // time left today
-            minutes += alarm.hour * 60 + alarm.minute;   // time until alarm tomorrow
+            long minutes = (23 - nowHr) * 60 + (59 - nowMn);         // time left today
+            minutes += nextSetAlarm.hour * 60 + nextSetAlarm.minute; // time until alarm tomorrow
             return minutes;
         } 
     } 
     return -1;
 }
 
-// Calculate and store next alarm details.
-// This gets called from the loop, so that other functions such as displayAlarm
-// can access the results quickly.   ...to be done in the next commit.
-// TODO it will also clear the cancelled flag if no alarm due.
-static void calcNextAlarm (void) {
+// Calculate and store next alarm details etc.
+// This gets called from the loop, so that other functions such as displayTime
+// can access the results quickly.
+static void calcLoopGlobals (void) {
+    // Need these 'now' values...
+    today    = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
+    tomorrow = (today + 1) % 7;   // tomorrow
+    nowHr       = TZ.hour();
+    nowMn       = TZ.minute();
+    // ...before calling these functions:
+    nextSetAlarmIndex = getNextSetAlarmIndex();
+    nextSetAlarmIn    = getNextSetAlarmIn();
+    nextSetAlarm      = config::config.alarmDay[nextSetAlarmIndex];
+    alarmToday        = config::config.alarmDay[today];
+    alarmTomorrow     = config::config.alarmDay[tomorrow];
+    // If there's no alarm in the next 24 hours, the cancelled
+    // flag is meaningless, so clear it to keep things unambiguous.
+    if (nextSetAlarmIndex < 0) {
+        nextAlarmCancelled = false;
+    }
 }
 
 void addAlarmToJsonDoc(DynamicJsonDocument *json) {
@@ -358,8 +388,8 @@ void handleGetData () {
     json["lightLevel"] = String(a);
     json["wifiQuality"] = String(rssi);
     json["time"] = String(time);
-    json["nextSetAlarmIndex"] = nextSetAlarmIndex();
-    json["nextSetAlarmIn"] = nextSetAlarmIn();
+    json["nextSetAlarmIndex"] = nextSetAlarmIndex;
+    json["nextSetAlarmIn"] = nextSetAlarmIn;
     json["nextAlarmCancelled"] = nextAlarmCancelled;
 
     // Also send alarm data
@@ -395,20 +425,14 @@ void handleSetAlarm() {
     }
     if (doc.containsKey("nextAlarmCancelled")) {
         // This flag is just global, not in the config.
-        PRINTF("hSA: nextAlarmCancelled was %d, setting to %s\n", nextAlarmCancelled, doc["nextAlarmCancelled"].as<String>().c_str());
+        //PRINTF("hSA: nextAlarmCancelled was %d, setting to %s\n", nextAlarmCancelled, doc["nextAlarmCancelled"].as<String>().c_str());
         nextAlarmCancelled = doc["nextAlarmCancelled"]; //.as<boolean>;
-        PRINTF("hSA: nextAlarmCancelled now %d\n", nextAlarmCancelled);
+        //PRINTF("hSA: nextAlarmCancelled now %d\n", nextAlarmCancelled);
     }
     if (doc.containsKey("volume")) {
         newConfig.volume = doc["volume"];
     }
     storeConfig(&newConfig);    // also copies newConfig to config
-
-    // Potentially changed alarm times: check if there's an alarm in the ... no, do this in the loop.
-    // TODO move this into calcAlarm:
-    if (nextSetAlarmIndex() < 0) {
-        nextAlarmCancelled = false;
-    }
 
     server.send(200, "text/html", "OK");
 }
@@ -585,7 +609,6 @@ static void setButtonStates (void) {
         }
     }
     lButtonPressedBefore = lButtonPressed;
-
     if (rButtonPressed) {
         if (rButtonPressedBefore) {
             // Not a new press
@@ -630,27 +653,26 @@ static void adjustBrightness() {
 }
 
 static void checkForAlarm () {
-    int hr = TZ.hour();
-    int mn = TZ.minute();
-    long unsigned now = millis();
+    //int hr = TZ.hour();
+    //int mn = TZ.minute();
+    long unsigned nowMillis = millis();
     static int stopMinute = -1; // The minute when the alarm was stopped
-    //PRINTF("cFA: alarmState is %d   time is %02d:%02d\n", alarmState, hr, mn);
+    //PRINTF("cFA: alarmState is %d   time is %02d:%02d\n", alarmState, nowHr, nowMn);
     switch (alarmState) {
         case alarmStateEnum::Off: {
-            int i = nextSetAlarmIndex();
-            if ((i >= 0) && !nextAlarmCancelled)  {
-                config::alarmDetails_t alarm = config::config.alarmDay[i];
+            if ((nextSetAlarmIndex >= 0) && !nextAlarmCancelled)  {
+                //config::alarmDetails_t alarm = config::config.alarmDay[i];
                 //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
-                if (hr == alarm.hour && mn == alarm.minute) {
+                if (nowHr == nextSetAlarm.hour && nowMn == nextSetAlarm.minute) {
                     // we're at the set time -- start ringing
                     alarmState = alarmStateEnum::Ringing;
-                    alarmStateStart = now;  
+                    alarmStateStart = nowMillis;  
                     alarmRepeatCount = 0;
                     alarmSnoozeCount = 0;
                     e8rtp::start();
                     // cancel alarm override (whichever way it was toggled before)
                     nextAlarmCancelled = false;
-                    PRINTF("cFA: start ringing for alarm %02d:%02d\n", alarm.hour, alarm.minute);
+                    PRINTF("cFA: start ringing for alarm %02d:%02d\n", nextSetAlarm.hour, nextSetAlarm.minute);
                 }
             }
             break;
@@ -661,29 +683,29 @@ static void checkForAlarm () {
                 if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
                     // snooze
                     alarmState = alarmStateEnum::Snoozed;
-                    alarmStateStart = now;
+                    alarmStateStart = nowMillis;
                     alarmSnoozeCount = 1;
                     e8rtp::pause();
                     PRINTF("cFA: ringing -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {   // TODO better choices of long/short/both button presses
                     // stop
                     alarmState = alarmStateEnum::Stopped;
-                    stopMinute = TZ.minute();
-                    alarmStateStart = now;  // not needed
+                    stopMinute = nowMn;
+                    alarmStateStart = nowMillis;  // not needed
                     e8rtp::stop();
                     PRINTLN("cFA: ringing -> stopped (rButton)");
                 }
-            } else if (now - alarmStateStart > alarmRingTime) {
+            } else if (nowMillis - alarmStateStart > alarmRingTime) {
                 if (alarmRepeatCount >= alarmRepeatMax) {
                     // alarm ignored for long enough -- stop
                     alarmState = alarmStateEnum::Stopped;
-                    stopMinute = TZ.minute();
+                    stopMinute = nowMn;
                     e8rtp::stop();
                     PRINTLN("cFA: ringing -> stopped (timeout)");
                 } else {
                     // pause
                     alarmState= alarmStateEnum::Paused;
-                    alarmStateStart = now;
+                    alarmStateStart = nowMillis;
                     e8rtp::pause();
                     PRINTLN("cFA: ringing -> paused");
                 }   
@@ -694,27 +716,27 @@ static void checkForAlarm () {
             if (buttonState.aButtonPressed) {
                 if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
                     // restart the snooze from now, but increase the count
-                    alarmStateStart = now;
+                    alarmStateStart = nowMillis;
                     alarmSnoozeCount += 1;
                     PRINTF("cFA: snoozing -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {
                     // stop
                     alarmState = alarmStateEnum::Stopped;
-                    stopMinute = TZ.minute();
+                    stopMinute = nowMn;
                     e8rtp::stop();
                     PRINTLN("cFA: snoozing -> stopped (rButton)");
                 }
-            } else if (now - alarmStateStart > alarmSnoozeTime) {
+            } else if (nowMillis - alarmStateStart > alarmSnoozeTime) {
                 if (alarmSnoozeCount >= alarmSnoozeMax) {
                     // alarm ignored for long enough -- stop
                     alarmState = alarmStateEnum::Stopped;
-                    stopMinute = TZ.minute();
+                    stopMinute = nowMn;
                     e8rtp::stop();
                     PRINTLN("cFA: snoozing stopped (enough snoozes))");
                 } else {
                     // back to ringing (but don't reset the counts)
                     alarmState = alarmStateEnum::Ringing;
-                    alarmStateStart = now;  
+                    alarmStateStart = nowMillis;  
                     e8rtp::resume();
                     PRINTLN("cFA: snoozing -> ringing (timeout)");
                 }
@@ -726,21 +748,21 @@ static void checkForAlarm () {
                 if (buttonState.lButtonPressed) {   // TODO better choices of long/short/both button presses
                     // start the snooze from now
                     alarmState = alarmStateEnum::Snoozed;
-                    alarmStateStart = now;
+                    alarmStateStart = nowMillis;
                     alarmSnoozeCount += 1;
                     e8rtp::pause(); // (should be paused already)
                     PRINTF("cFA: paused -> snooze no. %d (lButton)\n", alarmSnoozeCount);
                 } else if (buttonState.rButtonPressed) {
                     // stop
                     alarmState = alarmStateEnum::Stopped;
-                    stopMinute = TZ.minute();
+                    stopMinute = nowMn;
                     e8rtp::stop();
                     PRINTLN("cFA: paused -> stopped (rButton)");
                 }
-            } else if (now - alarmStateStart > alarmPauseTime) {
+            } else if (nowMillis - alarmStateStart > alarmPauseTime) {
                 // back to ringing 
                 alarmState = alarmStateEnum::Ringing;
-                alarmStateStart = now;  
+                alarmStateStart = nowMillis;  
                 alarmRepeatCount += 1;
                 e8rtp::resume();
                 PRINTF("cFA: paused -> ringing, repeat %d\n", alarmRepeatCount);
@@ -749,7 +771,7 @@ static void checkForAlarm () {
         }
         case alarmStateEnum::Stopped: {
             // Go to Off once the minute has changed
-            if (TZ.minute() != stopMinute) {
+            if (nowMn != stopMinute) {
                 alarmState = alarmStateEnum::Off; 
                 PRINTLN("cFA: stopped -> off");
             }
@@ -766,14 +788,14 @@ static void checkForAlarm () {
 
 static void displayTime (void) {
     uint8_t digits[4];
-    int hr = TZ.hour();
-    int mn = TZ.minute();
-    digits[0] = (hr > 9) ? display.encodeDigit(hr / 10) : 0;    // 0 means blank, just for this digit
-    digits[1] = display.encodeDigit(hr % 10);
-    digits[2] = display.encodeDigit(mn / 10);
-    digits[3] = display.encodeDigit(mn % 10);
-    // Toggle colon every second, but keep it on if the alarm is set
-    bool showColon = ((nextSetAlarmIndex() >= 0) && !nextAlarmCancelled) || (TZ.second() % 2);
+    //int hr = TZ.hour();
+    //int mn = TZ.minute();
+    digits[0] = (nowHr > 9) ? display.encodeDigit(nowHr / 10) : 0;    // 0 means blank, just for this digit
+    digits[1] = display.encodeDigit(nowHr % 10);
+    digits[2] = display.encodeDigit(nowMn / 10);
+    digits[3] = display.encodeDigit(nowMn % 10);
+    // Toggle colon every second, but keep it on if the alarm is set (and not cancelled)
+    bool showColon = ((nextSetAlarmIndex >= 0) && !nextAlarmCancelled) || (TZ.second() % 2);
     if (showColon) {
         digits[1] |= 1 << 7;
     }
@@ -782,14 +804,10 @@ static void displayTime (void) {
 
 // Toggle the nextAlarmCancelled flag when user has pressed the relevant button.
 // BUT: don't set it to on if there is no alarm set in the next 24 hours.
-// In fact, we always set it to false if no alarm is due just to make sure.
 static void toggleNextAlarmCancelled (void) {
-    int i = nextSetAlarmIndex();
-    if (i >= 0) {
+    if (nextSetAlarmIndex >= 0) {
         nextAlarmCancelled ^= true;
-        PRINTF("tNAC: nextAlarmCancelled toggled to %oi (i=%d)\n", nextAlarmCancelled, i);
-    } else {
-        nextAlarmCancelled = false;
+        PRINTF("tNAC: nextAlarmCancelled toggled to %oi (nSAI=%d)\n", nextAlarmCancelled, nextSetAlarmIndex);
     }
 }
 
@@ -909,7 +927,7 @@ void loop() {
         PRINTLN("r button long");
     }
 
-    calcNextAlarm();
+    calcLoopGlobals();
 
     adjustBrightness();
 
