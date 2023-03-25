@@ -274,7 +274,7 @@ void handleNotFound() {
 // Get the index (into config.alarmDay) of the next set (and not cancelled) alarm.
 // Returns -1 if there is no alarm set in the next 24 hours.
 // The cancellation applies to the next set alarm -- which may be tomorrow
-// even if there is an unset alarm later today.
+// even if there is an unset alarm later today.  NO! -- it just applies to the next set alarm, ignoring cancellation (at this stage).
 //STILL NOT SURE IF THIS IS RIGHT -- need a list of test cases
 static int nextSetAlarmIndex (void) {
     int next = -1;
@@ -287,22 +287,22 @@ static int nextSetAlarmIndex (void) {
     config::alarmDetails_t tomorrow = config::config.alarmDay[tmw];
     if ((today.set) && ((today.hour > hr) || ((today.hour == hr) && (today.minute >= mn)))) {
         // Next set alarm is later today
-        if (!nextAlarmCancelled) {
+        //if (!nextAlarmCancelled) {
             next = tdy;
-        }
+        //}
     }
     if ((next == -1) && (tomorrow.set) && ((tomorrow.hour < hr) || ((tomorrow.hour == hr) && (tomorrow.minute < mn)))) {
         // Next set alarm is tomorrow
-        if (!nextAlarmCancelled) {
+        //if (!nextAlarmCancelled) {
             next = tmw;
-        }
+        //}
     }
     //PRINTF("nSAI: tdy=%d tmw=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d nac=%d\n", 
     //    tdy, tmw, hr, mn, today.hour, today.minute, today.set, tomorrow.hour, tomorrow.minute, tomorrow.set, next, nextAlarmCancelled);
     return next;
 }
 
-// Return number of minutes until next set and not cancelled alarm (or -1 if none due in the next 24 hours)
+// Return number of minutes until next set [and not cancelled] alarm (or -1 if none due in the next 24 hours)
 static long nextSetAlarmIn (void) {
     int id = nextSetAlarmIndex();
     if (id >= 0) {
@@ -322,6 +322,13 @@ static long nextSetAlarmIn (void) {
         } 
     } 
     return -1;
+}
+
+// Calculate and store next alarm details.
+// This gets called from the loop, so that other functions such as displayAlarm
+// can access the results quickly.   ...to be done in the next commit.
+// TODO it will also clear the cancelled flag if no alarm due.
+static void calcNextAlarm (void) {
 }
 
 void addAlarmToJsonDoc(DynamicJsonDocument *json) {
@@ -396,6 +403,12 @@ void handleSetAlarm() {
         newConfig.volume = doc["volume"];
     }
     storeConfig(&newConfig);    // also copies newConfig to config
+
+    // Potentially changed alarm times: check if there's an alarm in the ... no, do this in the loop.
+    // TODO move this into calcAlarm:
+    if (nextSetAlarmIndex() < 0) {
+        nextAlarmCancelled = false;
+    }
 
     server.send(200, "text/html", "OK");
 }
@@ -625,7 +638,7 @@ static void checkForAlarm () {
     switch (alarmState) {
         case alarmStateEnum::Off: {
             int i = nextSetAlarmIndex();
-            if (i >= 0) {
+            if ((i >= 0) && !nextAlarmCancelled)  {
                 config::alarmDetails_t alarm = config::config.alarmDay[i];
                 //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
                 if (hr == alarm.hour && mn == alarm.minute) {
@@ -760,18 +773,23 @@ static void displayTime (void) {
     digits[2] = display.encodeDigit(mn / 10);
     digits[3] = display.encodeDigit(mn % 10);
     // Toggle colon every second, but keep it on if the alarm is set
-    bool showColon = (nextSetAlarmIndex() >= 0) || (TZ.second() % 2);
+    bool showColon = ((nextSetAlarmIndex() >= 0) && !nextAlarmCancelled) || (TZ.second() % 2);
     if (showColon) {
         digits[1] |= 1 << 7;
     }
     display.setSegments(digits);
 }
 
+// Toggle the nextAlarmCancelled flag when user has pressed the relevant button.
+// BUT: don't set it to on if there is no alarm set in the next 24 hours.
+// In fact, we always set it to false if no alarm is due just to make sure.
 static void toggleNextAlarmCancelled (void) {
     int i = nextSetAlarmIndex();
     if (i >= 0) {
         nextAlarmCancelled ^= true;
         PRINTF("tNAC: nextAlarmCancelled toggled to %oi (i=%d)\n", nextAlarmCancelled, i);
+    } else {
+        nextAlarmCancelled = false;
     }
 }
 
@@ -890,6 +908,8 @@ void loop() {
     if (buttonState.rButtonLong) {
         PRINTLN("r button long");
     }
+
+    calcNextAlarm();
 
     adjustBrightness();
 

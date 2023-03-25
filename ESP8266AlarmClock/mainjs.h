@@ -120,9 +120,10 @@ function getData() {
         currentTime.textContent = json.time;
         nextSetAlarmIndex = json.nextSetAlarmIndex;
         if (nextSetAlarmIndex < 0) {
-            nextSetAlarmIn.textContent = "No alarm set in next 24 hours unless there's another one";
+            nextSetAlarmIn.textContent = "No alarm set in next 24 hours";
         } else {
             nsaiMins = json.nextSetAlarmIn;
+            nsaCancelled = json.nextAlarmCancelled;
             if (nsaiMins == 0) {
                 nextSetAlarmIn.textContent = "Alarm currently ringing";
             } else {
@@ -135,7 +136,11 @@ function getData() {
                 nsaiString += `${nsaiMins} minutes`;
                 nextTime = document.getElementById("time" + nextSetAlarmIndex);
                 nsaiString += ` at ${nextTime.value}`;
+                if (nsaCancelled) {
+                    nsaiString += ' but it has been cancelled';
+                }
                 nextSetAlarmIn.textContent = nsaiString;
+
             }
         }
         // Also update alarms stuff -- could have been changed via buttons.
