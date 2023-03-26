@@ -228,16 +228,16 @@ static const long unsigned alarmSnoozeTime = 60 * 1000;  // ms
 
 // 'Loop globals' -- get calculated each time round the loop in calcLoopGlobals() ------------------------
 
-static int  nextSetAlarmIndex  = -1;         // -1 means no alarm set
-static long nextSetAlarmIn     = -1;         // in minutes; -1 means no alarm set
-static bool nextAlarmCancelled = false;      // true if the next alarm has been cancelled
-static int  today    = 0;                    // today.  0 = Sunday  (ezTime has 1=Sunday)
-static int  tomorrow = 0;                    // tomorrow
-static int  nowHr    = 0;                    // current hour
-static int  nowMn    = 0;                    // current minute
-static config::alarmDetails_t nextSetAlarm;  // next alarm
-static config::alarmDetails_t alarmToday;    // today's alarm
-static config::alarmDetails_t alarmTomorrow; // tomorrow's alarm
+static int  nextSetAlarmIndex  = -1;          // -1 means no alarm set
+static long nextSetAlarmIn     = -1;          // in minutes; -1 means no alarm set
+static bool nextAlarmCancelled = false;       // true if the next alarm has been cancelled
+static int  today    = 0;                     // today.  0 = Sunday  (ezTime has 1=Sunday)
+static int  tomorrow = 0;                     // tomorrow
+static int  nowHr    = 0;                     // current hour
+static int  nowMn    = 0;                     // current minute
+static config::alarmDetails_t *nextSetAlarm  = nullptr; // next alarm
+static config::alarmDetails_t *alarmToday    = nullptr; // today's alarm
+static config::alarmDetails_t *alarmTomorrow = nullptr; // tomorrow's alarm
 
 // ------------------------
  
@@ -248,9 +248,8 @@ static int getWifiQuality() {
         return 0;
     } else if (dbm >= -50) {
         return 100;
-    } else {
-        return 2 * (dbm + 100);
     }
+    return 2 * (dbm + 100);
 }
 
 void dontKeepLightOn (void) {
@@ -300,13 +299,13 @@ static int getNextSetAlarmIndex (void) {
     //int mn = TZ.minute();
     //config::alarmDetails_t today = config::config.alarmDay[tdy];
     //config::alarmDetails_t tomorrow = config::config.alarmDay[tmw];
-    if ((alarmToday.set) && ((alarmToday.hour > nowHr) || ((alarmToday.hour == nowHr) && (alarmToday.minute >= nowMn)))) {
+    if ((alarmToday->set) && ((alarmToday->hour > nowHr) || ((alarmToday->hour == nowHr) && (alarmToday->minute >= nowMn)))) {
         // Next set alarm is later today
         //if (!nextAlarmCancelled) {
             next = today;
         //}
     }
-    if ((next == -1) && (alarmTomorrow.set) && ((alarmTomorrow.hour < nowHr) || ((alarmTomorrow.hour == nowHr) && (alarmTomorrow.minute < nowMn)))) {
+    if ((next == -1) && (alarmTomorrow->set) && ((alarmTomorrow->hour < nowHr) || ((alarmTomorrow->hour == nowHr) && (alarmTomorrow->minute < nowMn)))) {
         // Next set alarm is tomorrow
         //if (!nextAlarmCancelled) {
             next = tomorrow;
@@ -327,12 +326,12 @@ static long getNextSetAlarmIn (void) {
         //int mn = TZ.minute();
         if (nextSetAlarmIndex == today) {
             // alarm is later today
-            long minutes = (nextSetAlarm.hour - nowHr) * 60 + (nextSetAlarm.minute - nowMn);
+            long minutes = (nextSetAlarm->hour - nowHr) * 60 + (nextSetAlarm->minute - nowMn);
             return minutes;
         } else {
             // alarm is tomorrow
             long minutes = (23 - nowHr) * 60 + (59 - nowMn);         // time left today
-            minutes += nextSetAlarm.hour * 60 + nextSetAlarm.minute; // time until alarm tomorrow
+            minutes += nextSetAlarm->hour * 60 + nextSetAlarm->minute; // time until alarm tomorrow
             return minutes;
         } 
     } 
@@ -346,14 +345,14 @@ static void calcLoopGlobals (void) {
     // Need these 'now' values...
     today    = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
     tomorrow = (today + 1) % 7;   // tomorrow
-    nowHr       = TZ.hour();
-    nowMn       = TZ.minute();
+    nowHr    = TZ.hour();
+    nowMn    = TZ.minute();
+    alarmToday    = &(config::config.alarmDay[today]);
+    alarmTomorrow = &(config::config.alarmDay[tomorrow]);
     // ...before calling these functions:
     nextSetAlarmIndex = getNextSetAlarmIndex();
+    nextSetAlarm      = &(config::config.alarmDay[nextSetAlarmIndex]);
     nextSetAlarmIn    = getNextSetAlarmIn();
-    nextSetAlarm      = config::config.alarmDay[nextSetAlarmIndex];
-    alarmToday        = config::config.alarmDay[today];
-    alarmTomorrow     = config::config.alarmDay[tomorrow];
     // If there's no alarm in the next 24 hours, the cancelled
     // flag is meaningless, so clear it to keep things unambiguous.
     if (nextSetAlarmIndex < 0) {
@@ -663,7 +662,7 @@ static void checkForAlarm () {
             if ((nextSetAlarmIndex >= 0) && !nextAlarmCancelled)  {
                 //config::alarmDetails_t alarm = config::config.alarmDay[i];
                 //PRINTF("cFA: off, next alarm is %02d:%02d %d\n", alarm.hour, alarm.minute, alarm.set);
-                if (nowHr == nextSetAlarm.hour && nowMn == nextSetAlarm.minute) {
+                if (nowHr == nextSetAlarm->hour && nowMn == nextSetAlarm->minute) {
                     // we're at the set time -- start ringing
                     alarmState = alarmStateEnum::Ringing;
                     alarmStateStart = nowMillis;  
@@ -672,7 +671,7 @@ static void checkForAlarm () {
                     e8rtp::start();
                     // cancel alarm override (whichever way it was toggled before)
                     nextAlarmCancelled = false;
-                    PRINTF("cFA: start ringing for alarm %02d:%02d\n", nextSetAlarm.hour, nextSetAlarm.minute);
+                    PRINTF("cFA: start ringing for alarm %02d:%02d\n", nextSetAlarm->hour, nextSetAlarm->minute);
                 }
             }
             break;
@@ -804,6 +803,7 @@ static void displayTime (void) {
 
 // Toggle the nextAlarmCancelled flag when user has pressed the relevant button.
 // BUT: don't set it to on if there is no alarm set in the next 24 hours.
+// FIXME should we set it off even if there is no alarm due??
 static void toggleNextAlarmCancelled (void) {
     if (nextSetAlarmIndex >= 0) {
         nextAlarmCancelled ^= true;
