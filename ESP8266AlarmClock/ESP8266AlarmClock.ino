@@ -42,15 +42,7 @@
 ****************************************************************/
 
 // TODO:
-// OH!  Can have two alarms in next 24 hours -- e.g. now 8pm, alarms for 11pm and 11am tomorrow -- how does this affect nextAlarmIndex etc.?
-// * cancelling an upcoming alarm with the buttons cancels it for next week too!
-        // DONE html/js: show if next alarm is overridden (and time to next alarm)
-        //          allow nextAlarmOverridden to be toggled
-        // NO put nextAlarmOverridden in the config
-        // DONE remove the override when the alarm rings! so that it doesn't apply to the next alarm
-        // BETTER PLAN -- nextAlarmCancelled -- subtle difference
-        // Deal with two alarms in next 24 hours
-        // OPtimise by calling nextSetAlarm... etc. every loop and storing the answer (displayAlarm calls it, and gets called every loop anyway)
+// * ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
 // * getNextAlarmIn() doesn't deal with daylight savings start/end -- does ezTime have the relevant functions?
 // * show version on display
 // * more delay on brightness to stop flashing
@@ -120,6 +112,15 @@
 // * get rid of OTA updates (to allow async etc.)
 // * allow user to cancel alarm before it goes off
 // * put volume on main alarm page
+// OH!  Can have two alarms in next 24 hours -- e.g. now 8pm, alarms for 11pm and 11am tomorrow -- how does this affect nextAlarmIndex etc.?
+// * cancelling an upcoming alarm with the buttons cancels it for next week too!
+        // DONE html/js: show if next alarm is overridden (and time to next alarm)
+        //          allow nextAlarmOverridden to be toggled
+        // NO put nextAlarmOverridden in the config
+        // DONE remove the override when the alarm rings! so that it doesn't apply to the next alarm
+        // BETTER PLAN -- nextAlarmCancelled -- subtle difference
+        // Deal with two alarms in next 24 hours
+        // OPtimise by calling nextSetAlarm... etc. every loop and storing the answer (displayAlarm calls it, and gets called every loop anyway)
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -293,23 +294,13 @@ void handleNotFound() {
 static int getNextSetAlarmIndex (void) {
     int next = -1;
     // Get 'now' as day of week, hour, minute
-    //int tdy = TZ.weekday() - 1;  // today.  0 = Sunday  (ezTime has 1=Sunday)
-    //int tmw = (tdy + 1) % 7;     // tomorrow
-    //int hr = TZ.hour();
-    //int mn = TZ.minute();
-    //config::alarmDetails_t today = config::config.alarmDay[tdy];
-    //config::alarmDetails_t tomorrow = config::config.alarmDay[tmw];
     if ((alarmToday->set) && ((alarmToday->hour > nowHr) || ((alarmToday->hour == nowHr) && (alarmToday->minute >= nowMn)))) {
         // Next set alarm is later today
-        //if (!nextAlarmCancelled) {
-            next = today;
-        //}
+        next = today;
     }
     if ((next == -1) && (alarmTomorrow->set) && ((alarmTomorrow->hour < nowHr) || ((alarmTomorrow->hour == nowHr) && (alarmTomorrow->minute < nowMn)))) {
         // Next set alarm is tomorrow
-        //if (!nextAlarmCancelled) {
-            next = tomorrow;
-        //}
+        next = tomorrow;
     }
     //PRINTF("nSAI: tdy=%d tmw=%d hr=%d mn=%d today=%d:%d.%d tmrw=%d:%d.%d next=%d nac=%d\n", 
     //    tdy, tmw, hr, mn, today.hour, today.minute, today.set, tomorrow.hour, tomorrow.minute, tomorrow.set, next, nextAlarmCancelled);
@@ -318,6 +309,14 @@ static int getNextSetAlarmIndex (void) {
 
 // Return number of minutes until next set alarm (or -1 if none due in the next 24 hours)
 // FIXME allow for daylight saving start or end between now and the alarm times.
+
+// Deal with DST change:
+// - do isDST on current time
+// - ditto on next alarm time
+// - if different:
+//   - if alarm is DST, subtract an hour from difference
+//     else add an hour
+// - what if alarm is in the lost hour?
 static long getNextSetAlarmIn (void) {
     if (nextSetAlarmIndex >= 0) {
         //config::alarmDetails_t alarm = config::config.alarmDay[nextSetAlarmIndex];
@@ -336,6 +335,24 @@ static long getNextSetAlarmIn (void) {
         } 
     } 
     return -1;
+}
+
+static void testCases (void) {
+    PRINTLN("tC: Waiting for ezTime sync...");
+    ezt::waitForSync(); // may need to do this in the loop.  No, seems OK -- lets WiFi etc. connect before continuing, so OK if WiFi settings are done.
+    PRINTLN("tC: Test cases after waitForSync:");
+    String TZTimezone = TZ.getTimezoneName();
+    String stdTimezone = ezt::getTimezoneName();
+    bool TZnowDST = TZ.isDST();
+    PRINTF("tC: TZnowDST: %d %s\n", TZnowDST, TZTimezone.c_str()); 
+    bool nowDST = ezt::isDST();
+    PRINTF("tC: nowDST: %d %s\n", nowDST, stdTimezone.c_str()); 
+    PRINTLN("tC: UTC: " + UTC.dateTime());
+    TZ.setLocation(config::config.tz);
+    PRINTLN("tC: Local: " + TZ.dateTime());
+    unsigned long U = 1679862310; // 26/3/2023 9pm-ish -- start of DST 
+    PRINTF("tC: TZ U.isDST %d\n", TZ.isDST(U)); 
+    PRINTF("tC: UTC U.isDST %d\n", ezt::isDST(U)); 
 }
 
 // Calculate and store next alarm details etc.
@@ -878,6 +895,8 @@ void setup() {
     e8rtp::setup(BUZZER_PIN, config::config.volume, config::config.melody);
 
     alarmState = alarmStateEnum::Off;
+
+    testCases();
 }
 
 void loop() {
