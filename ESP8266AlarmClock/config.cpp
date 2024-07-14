@@ -29,7 +29,7 @@
 
 namespace config {
 
-	const uint32_t CONFIGSIG = 0xe8ac0003ul; // Something unique to the current version of
+	const uint32_t CONFIGSIG = 0xe8ac0004ul; // Something unique to the current version of
 											 // the config structure -- if it changes later, 
 											 // build up a list of previous signatures if migration is required.
 
@@ -68,7 +68,7 @@ namespace config {
 		}
 		strlcpy(config.melody, "WalkLike:d=4,o=5,b=120:p,8f#,8d#,d#,d#,d#.,c#,f#.,d#,8d#,e,8d#,b4,b4.,a4,8a4,b4", MELODY_MAX);
 		strlcpy(config.tz, "Europe/London", TZ_MAX);
-		strlcpy(config.hostname, "ESP3266AlarmClock", sizeof(config.hostname));
+		strlcpy(config.hostname, "ESP8266AlarmClock", sizeof(config.hostname));
 		for (size_t i = 0; i < WIFI_MAX; i++) {
 			config.wifi[i].ssid[0] = '\0';
 			config.wifi[i].pass[0] = '\0';

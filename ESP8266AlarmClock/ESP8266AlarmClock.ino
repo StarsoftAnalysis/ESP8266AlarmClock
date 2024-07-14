@@ -173,9 +173,11 @@
 #include "settingsjs.h"
 // Bootstrap 5 CSS and JS
 // Defines "const char bootstrapcss[]":
-#include "bootstrap.min.css.h"
+//#include "bootstrap.min.css.h"
 // Defines "const char bootstrapjs[]":
-#include "bootstrap.bundle.min.js.h"
+//#include "bootstrap.bundle.min.js.h"
+// Defines "const char stylecss[]":
+#include "style.css.h"
 
 // -----------------------------
 
@@ -275,12 +277,12 @@ void handleSettingsJS() {
     PRINTF("Sending '/settingsjs' length %d\n", strlen_P(settingsjs));
     server.send(200, "text/javascript", settingsjs);
 }
-void handleBootstrapJS() {
-    server.send(200, "text/javascript", bootstrapjs);
-}
-void handleBootstrapCSS() {
-    server.send(200, "text/css", bootstrapcss);
-}
+//void handleBootstrapJS() {
+//    server.send(200, "text/javascript", bootstrapjs);
+//}
+//void handleBootstrapCSS() {
+//    server.send(200, "text/css", bootstrapcss);
+//}
 
 void handleNotFound() {
     char message[] = "hNF: 404";
@@ -867,8 +869,8 @@ void setup() {
     server.on("/settings", handleSettings);
     server.on("/mainjs", handleJS);
     server.on("/settingsjs", handleSettingsJS);
-    server.on("/bootstrapjs", handleBootstrapJS);
-    server.on("/bootstrapcss", handleBootstrapCSS);
+    //server.on("/bootstrapjs", handleBootstrapJS);
+    //server.on("/bootstrapcss", handleBootstrapCSS);
     server.on("/setAlarm", handleSetAlarm);
     server.on("/getAlarm", handleGetAlarm);
     server.on("/setSettings", handleSetSettings);
@@ -896,7 +898,7 @@ void setup() {
 
     alarmState = alarmStateEnum::Off;
 
-    testCases();
+    //testCases();
 }
 
 void loop() {
