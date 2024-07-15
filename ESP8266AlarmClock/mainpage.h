@@ -31,84 +31,68 @@ const char mainpage[] PROGMEM = R"=====(
 
 </head>
 
-<body class="d-flex flex-column h-100">
-<nav class="navbar navbar-expand-md navbar-dark bg-dark">
-    <h1 class="text-white mb-0"><!-- clock.svg --><svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="28" viewBox="0 0 24 28" fill="white" stroke="white"><path d="M14 8.5v7c0 0.281-0.219 0.5-0.5 0.5h-5c-0.281 0-0.5-0.219-0.5-0.5v-1c0-0.281 0.219-0.5 0.5-0.5h3.5v-5.5c0-0.281 0.219-0.5 0.5-0.5h1c0.281 0 0.5 0.219 0.5 0.5zM20.5 14c0-4.688-3.813-8.5-8.5-8.5s-8.5 3.813-8.5 8.5 3.813 8.5 8.5 8.5 8.5-3.813 8.5-8.5zM24 14c0 6.625-5.375 12-12 12s-12-5.375-12-12 5.375-12 12-12 12 5.375 12 12z"></path></svg> Alarm Clock</h1>
+<body>
+<nav>
+    <h1><!-- clock.svg --><svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="28" viewBox="0 0 24 28" fill="white" stroke="white"><path d="M14 8.5v7c0 0.281-0.219 0.5-0.5 0.5h-5c-0.281 0-0.5-0.219-0.5-0.5v-1c0-0.281 0.219-0.5 0.5-0.5h3.5v-5.5c0-0.281 0.219-0.5 0.5-0.5h1c0.281 0 0.5 0.219 0.5 0.5zM20.5 14c0-4.688-3.813-8.5-8.5-8.5s-8.5 3.813-8.5 8.5 3.813 8.5 8.5 8.5 8.5-3.813 8.5-8.5zM24 14c0 6.625-5.375 12-12 12s-12-5.375-12-12 5.375-12 12-12 12 5.375 12 12z"></path></svg> Alarm Clock</h1>
 </nav>
 <main role="main">
-  <div class="container">
-    <div class=form-group>
-      <div class="form-row">
 
-        <div class="col-auto">
-          <h2 class="mt-3">Set the alarm</h2>
-          <table class=table-sm>
-            <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
-            <tr>
-                <td><label for="time0" class="form-label">Sunday</label></td>
-                <td><input id="time0" type="time" class="form-control alarmField" aria-label="Alarm time Sunday"></td>
-                <td><input id="set0" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Sunday"></td>
-            </tr> 
-            <tr>
-                <td><label for="time1" class="form-label">Monday</label></td>
-                <td><input id="time1" type="time" class="form-control alarmField" aria-label="Alarm time Monday"></td>
-                <td><input id="set1" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Monday"></td>
-            </tr> 
-            <tr>
-                <td><label for="time2" class="form-label">Tuesday</label></td>
-                <td><input id="time2" type="time" class="form-control alarmField" aria-label="Alarm time Tuesday"></td>
-                <td><input id="set2" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Tuesday"></td>
-            </tr> 
-            <tr>
-                <td><label for="time3" class="form-label">Wednesday</label></td>
-                <td><input id="time3" type="time" class="form-control alarmField" aria-label="Alarm time Wednesday"></td>
-                <td><input id="set3" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Wednesday"></td>
-            </tr> 
-            <tr>
-                <td><label for="time4" class="form-label">Thursday</label></td>
-                <td><input id="time4" type="time" class="form-control alarmField" aria-label="Alarm time Thursday"></td>
-                <td><input id="set4" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Thursday"></td>
-            </tr> 
-            <tr>
-                <td><label for="time5" class="form-label">Friday</label></td>
-                <td><input id="time5" type="time" class="form-control alarmField" aria-label="Alarm time Friday"></td>
-                <td><input id="set5" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Friday"></td>
-            </tr> 
-            <tr>
-                <td><label for="time6" class="form-label">Saturday</label></td>
-                <td><input id="time6" type="time" class="form-control alarmField" aria-label="Alarm time Saturday"></td>
-                <td><input id="set6" class="form-check-input alarmField" type="checkbox" aria-label="Alarm set Saturday"></td>
-            </tr> 
-          </table>
-        </div>
+    <h2 class="mt-3">Set the alarm</h2>
 
-        <div class="col-auto">
-          <p class="h4 mt-3"><label for="volume">Volume:</label> <output for="volume" id="volumeOutput"></output>
-          <input class="form-control" type="range" name="volume" id="volume" min="0" max="11" step="1" value="5">
-        </div>
+    <table class=table-sm>
+    <tr><th>Day</th><th>Alarm Time</th><th>Set?</th></tr>
+    <tr>
+        <td><label for="time0">Sunday</label></td>
+        <td><input id="time0" type="time" class="alarmField" aria-label="Alarm time Sunday"></td>
+        <td><input id="set0" class="alarmField" type="checkbox" aria-label="Alarm set Sunday"></td>
+    </tr> 
+    <tr>
+        <td><label for="time1">Monday</label></td>
+        <td><input id="time1" type="time" class="alarmField" aria-label="Alarm time Monday"></td>
+        <td><input id="set1" class="alarmField" type="checkbox" aria-label="Alarm set Monday"></td>
+    </tr> 
+    <tr>
+        <td><label for="time2">Tuesday</label></td>
+        <td><input id="time2" type="time" class="alarmField" aria-label="Alarm time Tuesday"></td>
+        <td><input id="set2" class="alarmField" type="checkbox" aria-label="Alarm set Tuesday"></td>
+    </tr> 
+    <tr>
+        <td><label for="time3">Wednesday</label></td>
+        <td><input id="time3" type="time" class="alarmField" aria-label="Alarm time Wednesday"></td>
+        <td><input id="set3" class="alarmField" type="checkbox" aria-label="Alarm set Wednesday"></td>
+    </tr> 
+    <tr>
+        <td><label for="time4">Thursday</label></td>
+        <td><input id="time4" type="time" class="alarmField" aria-label="Alarm time Thursday"></td>
+        <td><input id="set4" class="alarmField" type="checkbox" aria-label="Alarm set Thursday"></td>
+    </tr> 
+    <tr>
+        <td><label for="time5">Friday</label></td>
+        <td><input id="time5" type="time" class="alarmField" aria-label="Alarm time Friday"></td>
+        <td><input id="set5" class="alarmField" type="checkbox" aria-label="Alarm set Friday"></td>
+    </tr> 
+    <tr>
+        <td><label for="time6">Saturday</label></td>
+        <td><input id="time6" type="time" class="alarmField" aria-label="Alarm time Saturday"></td>
+        <td><input id="set6" class="alarmField" type="checkbox" aria-label="Alarm set Saturday"></td>
+    </tr> 
+    </table>
 
-        <div class="col-auto">
-          <h4 class="mt-3">Next Alarm</h4>
-          <p><span id=nextSetAlarmIn>...</span></p>
-          <p>Next Alarm Cancelled? <input id="nextAlarmCancelled" class="form-check-input alarmField" type=checkbox aria-label="Next Alarm Cancelled"></p>
-        </div>
+    <p><label for="volume">Volume:</label> <output for="volume" id="volumeOutput"></output>
+    <input type="range" name="volume" id="volume" min="0" max="11" step="1" value="5">
 
-        <div class="col-auto">
-          <button class="btn btn-primary mt-3" type=button id=setAlarm>Save</button>
-          <span id="statusMsg"></span>
-        </div>
+    <h4>Next Alarm</h4>
+    <p><span id=nextSetAlarmIn>...</span></p>
+    <p>Next Alarm Cancelled? <input id="nextAlarmCancelled" class="alarmField" type=checkbox aria-label="Next Alarm Cancelled"></p>
 
-        <div class="col-auto">
-          <h4 class="mt-3">Current Time</h4>
-          <p id=currentTime class="h2 font-weight-bold font-italic">00:00</p>
-        </div>
+    <button type=button id=setAlarm>Save</button>
+    <span id="statusMsg"></span>
 
-      </div>
-    </div>
+    <h4 class="mt-3">Current Time</h4>
+    <p id=currentTime>00:00</p>
 
     <p><a href="/settings">Settings</a>
 
-  </div>
 </main>
 
 <footer>
