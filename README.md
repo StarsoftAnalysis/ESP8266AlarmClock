@@ -57,7 +57,10 @@ on the web ([Picaxe](https://picaxe.com/rtttl-ringtones-for-tune-command/), for 
 To test the melody, copy-and-paste it into a site such as [Adam Rahwane](https://adamonsoon.github.io/rtttl-play/)'s
 (although that site is a bit picky about the RTTTL syntax that it will accept).
 
-* Choose your timezone from the list on [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
+* Set your timezone on the settings page. from the list on .
+The timezone can either be an Olson timezone name, like "Europe/London" (or some unique part of such a name). 
+[Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) has a complete list of these names. 
+Or it can be a two-letter country code for any country that does not span multiple timezones, like NL or DE (but not US).
 
 ## Buttons
 

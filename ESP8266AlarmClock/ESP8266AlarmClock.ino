@@ -5,7 +5,7 @@
     (or similar ESP8266-based circuit)
 
     This version by Chris Dennis
-    Copyright 2021 Chris Dennis
+    Copyright 2021-2024 Chris Dennis
 
     Modified from Brian Lough's code at https://github.com/witnessmenow/arduino-alarm-clock,
     with additional ideas and code from James Brown's version at https://github.com/jbrown123/arduino-alarm-clock 
@@ -40,87 +40,6 @@
     - likewise for current time (in case internet is not available)
 
 ****************************************************************/
-
-// TODO:
-// * ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
-// * getNextAlarmIn() doesn't deal with daylight savings start/end -- does ezTime have the relevant functions?
-// * show version on display
-// * more delay on brightness to stop flashing
-// * send version to HTML via JS
-// * put alarmPauseTime etc onto settings page and into config
-// * --:-- is not 00:00 - need to completely unset an alarm so that the button doesn't set it
-// * getData to also get display status, not just time e.g. boot Wifi 55 etc.  -- send what's on the display as text e.g. "12:34"
-//     and  display status e.g. 'Alarm ringing', and 'Time to next alarm' on webpage
-// * update all License bits with full name and dates
-// * allow user to set repeat/snooze times etc.
-// * get rid of bootstrap
-// * separate 'Settings' web page'
-//   - need to separate .js file and use it for both pages
-// * move svgs etc. into a folder
-// * make use of PRINTLN vs Serial.println consistent.
-// * if no internet, prompt for manual time setting
-// * cope with losing wifi -- gets stuck on WIFI display
-// * redo nextAlarm (to allow for more than one alarm per day): get list of alarms in next 24h, choose first one that is set (may return 'none')
-// * more aria labels in html
-// * allow user to set light level for turning display off in settings
-// * use #defines to set e.g. SNOOZE = LBUTTON etc. for ease of customisation
-// * Use NVS instead of EEPROM?
-//    - and/or use EZTime's cache
-// * button functions --  'config' more
-//   - set alarm time etc. e.g. left button held to cycle through modes: hr, min, alrmH, or use libraryr, alrmMin, alrmSet, exit (for next 24h), left=- right=+, hold for next mode.    e.g. setting hour, flash left 2 numbers; add colon when doing alarm, just show colon in alrmSet modei (+/- turns it on/off)
-// * alarm to get louder gradually
-// * HTTPS? -- see http://www.iotsharing.com/2017/08/how-to-use-https-in-arduino-esp32.html
-// * ezt::setServer(String("pool.ntp.org")); // TODO make this a web page option?
-
-// NO
-// - use ezTime events to trigger alarm?
-// * store alarm time as minutes since midnight instead of hour/minute
-// * ? define alarms as repeating or one-off.  or separate set of one-off alarms
-// * maybe use bool ezt's secondChanged() to display the time less often - no, frequent updates are good
-// * test RTTTL by playing it???  No -- give a link to a site to test it https://adamonsoon.github.io/rtttl-play/
-
-// DONE
-// * async web server?? or more consistent use of webActive??
-// * off completely if ldr < min -- not just on level
-// * colon if seconds % 2
-// * get rid if mdNS stuff
-// * bug? 
-//   - rebooted when button pressed for too long to see time at night
-//   - rebooted at alarm time
-// * light on when button pressed -- keep it on for e.g. 5 seconds
-// * EEPROM instead of SPIFFS for config
-// * JSON v6
-// * home-grown timers instead of pseudothreads
-// * need to not re-trigger alarm if turned off or timed out within the minute
-// * config in flash?
-// * snooze
-// * repeat e.g. alarm of after 5 minutes, then on again at 10 minutes, etc.
-// * snooze/pause times and counts in config and webpage
-// * web page 
-//   - choose from list of tunes
-//   - choose NTP server, time zone, DST rule
-// * GPL
-// * debounce buttons -- just one pause at a time:
-// * use ezt namespace
-// * 0:03 displays as '  : 3' !!
-// * only check for alarm once a minute (will avoid the nasty hack in nextAlarm())
-// * change time zone when it's changed on the gui
-// * get RTTTL to adjust volume -- use analogWriteRange or Resolution??
-// * display sometimes flickers -- depends on light level -- do running average?  maybe it only flickers while uploading software
-// * Updating the tune -- need to do e8rtp re-setup etc.
-// * OTA updates
-// * get rid of OTA updates (to allow async etc.)
-// * allow user to cancel alarm before it goes off
-// * put volume on main alarm page
-// OH!  Can have two alarms in next 24 hours -- e.g. now 8pm, alarms for 11pm and 11am tomorrow -- how does this affect nextAlarmIndex etc.?
-// * cancelling an upcoming alarm with the buttons cancels it for next week too!
-        // DONE html/js: show if next alarm is overridden (and time to next alarm)
-        //          allow nextAlarmOverridden to be toggled
-        // NO put nextAlarmOverridden in the config
-        // DONE remove the override when the alarm rings! so that it doesn't apply to the next alarm
-        // BETTER PLAN -- nextAlarmCancelled -- subtle difference
-        // Deal with two alarms in next 24 hours
-        // OPtimise by calling nextSetAlarm... etc. every loop and storing the answer (displayAlarm calls it, and gets called every loop anyway)
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -188,7 +107,7 @@
 // ------------------------
 
 // Set this in mainpage.h as well
-#define VERSION "0.2.3dev"
+#define VERSION "0.2.6dev"
 
 // Globals ------------------------
 
@@ -197,6 +116,7 @@ TM1637Display display(CLK_PIN, DIO_PIN);
 ESP8266WebServer server(80);
 
 static Timezone TZ;
+static timeStatus_t lastTimeStatus = timeNotSet;
 
 #define KEEP_LIGHT_ON_TIME 5000
 static bool keepingLightOn = false;
@@ -845,7 +765,7 @@ void setup() {
 
     //attachInterrupt(RBUTTON_PIN, interuptButton, RISING);  // TODO both buttons, or probably not at all
 
-	wifi::setup();
+    wifi::setup();
     //WiFiManager wifiManager;
     //wifiManager.setAPCallback(configModeCallback);
     //wifiManager.autoConnect("ESP8266AlarmClock");  // could check boolean rc from this
@@ -883,6 +803,7 @@ void setup() {
     //Serial.println("\nUTC: " + UTC.dateTime());
     TZ.setLocation(config::config.tz);
     //Serial.println("Local: " + TZ.dateTime());
+    lastTimeStatus = ezt::timeStatus();
 
     // Load the alarm tune
     e8rtp::setup(BUZZER_PIN, config::config.volume, config::config.melody);
@@ -899,6 +820,14 @@ void loop() {
     ezt::events();
     e8rtp::loop();
     server.handleClient();
+
+    // See if time has finally become available, so we can set the timezone.
+    // FIXME If we do manual time setting later, this might not be right.
+    if ((lastTimeStatus == timeNotSet) && (ezt::timeStatus() == timeSet)) {
+        lastTimeStatus = timeSet;
+        Serial.printf("Time is now set: setting timezone to %s\n", config::config.tz);
+        TZ.setLocation(config::config.tz);
+    }
 
     setButtonStates();
 
